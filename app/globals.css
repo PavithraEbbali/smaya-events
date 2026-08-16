@@ -1,0 +1,633 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens. Fonts are injected by next/font (app/layout.tsx) rather than a
+   render-blocking Google Fonts @import — the mobile Lighthouse target makes the
+   extra stylesheet round-trip too expensive.
+   --------------------------------------------------------------------------- */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  /*
+     A REAL serif, unlike --font-serif above, which is Outfit — a geometric
+     sans that predates this token's name. Used via `font-display` where the
+     copy wants warmth rather than the brand's engineered look.
+  */
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+
+  --color-smaya-plum: #3d1f5c; /* primary — deep luxury purple/navy-plum */
+  --color-smaya-plum-light: #5b3480; /* hover states, gradient stops */
+  --color-smaya-plum-deep: #231f36; /* sampled from the supplied logo monogram */
+  --color-smaya-gold: #d4af37; /* primary accent — CTAs, underlines, dividers */
+  --color-smaya-gold-light: #f0d584; /* shimmer highlight stop */
+  /*
+     Gold TEXT on a light ground only. #D4AF37 on ivory measures 2.0:1 — it
+     fails even the 3:1 large-text threshold, so accent words set in it were
+     effectively illegible. This clears 4.5:1 on both ivory and white.
+     On dark grounds keep --color-smaya-gold (8.15:1 on charcoal), and keep it
+     for rules, borders and icons where the text rules do not apply.
+  */
+  --color-smaya-gold-deep: #887023;
+  /*
+     Gold for STAR RATINGS specifically.
+
+     A five-star row is a graphical object that carries information, so WCAG
+     1.4.11 asks 3:1 of it — the same bar a control's outline has to meet, and
+     a bar --color-smaya-gold misses badly: 2.10:1 on white and 2.08:1 on
+     ivory, which made the rating the least legible thing on a testimonial
+     card despite being its headline claim. This clears 3:1 on both grounds
+     (3.50 white / 3.33 ivory) and still reads as gold rather than bronze.
+
+     `gold-deep` was the obvious reuse and is wrong here: at 4.67:1 it is
+     comfortably legible but visibly olive, and five olive stars stop looking
+     like a rating. This sits between the two on purpose.
+  */
+  --color-smaya-gold-star: #a8842a;
+  --color-smaya-coral: #ff6f61; /* secondary accent — the "energy" verticals */
+  --color-smaya-ivory: #faf9f6; /* base background */
+  --color-smaya-charcoal: #1c1b1f; /* dark sections, footer, overlays */
+
+  --ease-smaya: cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Lenis drives scrolling itself; native smooth scroll fights it. */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  html.lenis {
+    scroll-behavior: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  body {
+    @apply bg-smaya-ivory text-smaya-charcoal font-sans antialiased overflow-x-hidden;
+    selection: auto;
+  }
+
+  ::selection {
+    background-color: var(--color-smaya-gold);
+    color: var(--color-smaya-charcoal);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-smaya-gold);
+    outline-offset: 3px;
+  }
+
+  /* Every interactive control clears the 44px minimum tap target on touch. */
+  @media (pointer: coarse) {
+    a[data-tap],
+    button[data-tap] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+}
+
+@utility no-scrollbar {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ---------------------------------------------------------------------------
+   MARQUEE. Driven by CSS rather than a JS animation loop, deliberately.
+
+   An infinite Framer tween runs a rAF callback for the entire life of the page
+   — on the home page that is forever, on the main thread, whether or not the
+   section is on screen. These keyframes are compositor-driven and cost the
+   main thread nothing, which is what makes the brief's own worry about "a
+   performance hit on mobile" go away rather than get managed.
+
+   It also makes pause-on-hover a single declaration instead of imperative
+   start/stop calls that resume from wherever the tween happened to be.
+
+   The track holds TWO copies of the row and travels exactly -50%, so the
+   second copy lands precisely where the first began and the seam is invisible.
+   Any other distance shows a jump once per lap.
+   --------------------------------------------------------------------------- */
+@keyframes marquee-left {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes marquee-right {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   THE DARK CANVAS. Defined once, here, rather than pasted into each section.
+
+   Every dark surface used a flat `bg-[#050505]`, which meant nine files each
+   carrying their own copy of the brand's darkest colour — and five of those
+   files are now dead components, so a paste-everywhere change would have
+   touched more code that never renders than code that does. One utility means
+   the next dark section inherits the atmosphere for free.
+
+   The ellipse is anchored at the TOP because that is where the eye enters and
+   where the site's fixed header sits; lifting the canvas there and settling it
+   toward the base reads as a lit studio rather than an evenly-lit box.
+
+   NOTE FOR ANYONE ADJUSTING THE STOPS: `--surface-lift` is the lightest point
+   of the whole canvas, so it is the ground every contrast measurement on a
+   dark page is taken against. Raising it lowers every ratio on the site at
+   once. It is deliberately kept close to the base for that reason.
+   --------------------------------------------------------------------------- */
+@utility surface-obsidian {
+  --surface-lift: #141218;
+  --surface-mid: #070609;
+  --surface-base: #040305;
+
+  background-color: var(--surface-mid);
+  background-image: radial-gradient(
+    ellipse 120% 80% at 50% 0%,
+    var(--surface-lift) 0%,
+    var(--surface-mid) 46%,
+    var(--surface-base) 100%
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Gold shimmer sweep for primary CTAs (Section 4, item 13).
+   --------------------------------------------------------------------------- */
+.shimmer {
+  background-image: linear-gradient(
+    110deg,
+    var(--color-smaya-gold) 0%,
+    var(--color-smaya-gold) 35%,
+    var(--color-smaya-gold-light) 50%,
+    var(--color-smaya-gold) 65%,
+    var(--color-smaya-gold) 100%
+  );
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  transition: background-position 0.9s var(--ease-smaya);
+}
+
+.shimmer:hover,
+.shimmer:focus-visible {
+  background-position: 0 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Hero ambient glow orbs.
+
+   Periods are coprime (26s / 37s) so the pair never visibly resynchronises into
+   a pulse. Animates transform and opacity only, so the compositor owns them.
+
+   NOTE: these keyframes set `transform` wholesale, which drops any Tailwind
+   transform utility on the same element the instant they start. The orbs are
+   therefore positioned with plain offsets — never `-translate-x-1/2`.
+   --------------------------------------------------------------------------- */
+@keyframes smaya-orb-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate3d(6%, 4%, 0) scale(1.16);
+    opacity: 0.9;
+  }
+}
+
+@keyframes smaya-orb-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.08);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate3d(-5%, -6%, 0) scale(0.92);
+    opacity: 0.85;
+  }
+}
+
+.hero-orb-a {
+  animation: smaya-orb-a 26s ease-in-out infinite;
+}
+
+.hero-orb-b {
+  animation: smaya-orb-b 37s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Site chrome hides behind the opening sequence.
+
+   HeroIntro sets data-intro="playing" on <html> for as long as the doors are
+   closed. The overlay is z-[60] but it lives inside the hero section while the
+   header is fixed at document level, so the header painted straight over the
+   curtain — logo, nav and Book Event all sat on top of it. This is the fix:
+   state on the root element rather than a z-index escalation across a stacking
+   context neither element controls.
+
+   visibility, not just opacity — an opacity-0 header is still tabbable, and the
+   first thing a keyboard user does on load must not be focusing invisible
+   links.
+
+   `transition: none` IS THE POINT, not an oversight. A transition is read off
+   the state being animated TO, so this rule governs the hide and the header's
+   own `transition-all duration-500` governs the return. Hiding must be
+   instant — a 280ms fade out is a 280ms flash of the nav sitting on the closed
+   curtain, i.e. the exact bug. Coming back it fades, because by then the
+   sequence has finished and there is nothing to cover.
+
+   The attribute is only ever added by JS, so with JS off the chrome simply
+   never hides.
+   --------------------------------------------------------------------------- */
+[data-intro='playing'] [data-site-header] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Headline clip-path reveal.
+
+   Deliberately CSS, not GSAP or framer, for two reasons:
+
+   1. The hidden state must NOT come from a framer `initial` — framer serialises
+      that into the SSR HTML, so a clipped headline would ship to crawlers and
+      to anyone without JS as an invisible <h1>. Scoping to [data-motion="on"]
+      (set by the blocking script in <head>) means the start state is in place
+      before first paint with JS, and never applies without it.
+   2. A JS-driven reveal makes the <h1> INVISIBLE UNTIL the animation library
+      loads and runs. That is a catastrophic failure mode for the one element
+      that has to be readable — and it bit exactly that way during development.
+      A keyframe with `fill-mode: both` cannot fail open: the end state holds
+      whether or not anything else on the page works.
+
+   The per-line stagger comes in as --line-delay so the component can offset it
+   against the opening sequence, which is 1.6s on a fresh load and 0.1s on a
+   client-side return.
+   --------------------------------------------------------------------------- */
+@keyframes smaya-line-reveal {
+  from {
+    clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+  }
+  to {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+[data-motion='on'] .hero-line {
+  animation: smaya-line-reveal 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--line-delay, 0s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb-a,
+  .hero-orb-b {
+    animation: none;
+  }
+
+  /* Never leave the headline clipped when the reveal will not run. */
+  [data-motion='on'] .hero-line {
+    animation: none;
+    clip-path: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Everything below hides content until JS reveals it, so each "off" state is
+   scoped to `[data-motion="on"]` — an attribute set by a blocking inline script
+   in <head>. Without JS the attribute never appears and the content simply
+   renders, rather than staying invisible forever.
+   --------------------------------------------------------------------------- */
+
+/* Line-by-line clip-path text reveal (Section 4, item 3). */
+.reveal-line {
+  display: block;
+}
+
+[data-motion='on'] .reveal-line {
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(0.35em);
+  opacity: 0;
+  will-change: clip-path, transform, opacity;
+}
+
+.reveal-line[data-revealed="true"] {
+  clip-path: inset(0 0 -10% 0);
+  transform: translateY(0);
+  opacity: 1;
+  transition:
+    clip-path 0.9s var(--ease-smaya),
+    transform 0.9s var(--ease-smaya),
+    opacity 0.7s ease-out;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+/* SVG path draw used by dividers and nav underlines (Section 4, items 5 + 14). */
+[data-motion='on'] .path-draw {
+  stroke-dasharray: var(--path-length, 400);
+  stroke-dashoffset: var(--path-length, 400);
+}
+
+.path-draw[data-drawn="true"] {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1.4s var(--ease-smaya);
+}
+
+.nav-underline path {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.45s var(--ease-smaya);
+}
+
+.group\/nav:hover .nav-underline path,
+.group\/nav:focus-visible .nav-underline path {
+  stroke-dashoffset: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Outlined brand phrase (StrokeText) — stroke only, no fill, used as a texture
+   layer behind section headers. Kept faint on purpose: it is depth, not copy.
+   --------------------------------------------------------------------------- */
+.brand-etch {
+  color: transparent;
+  -webkit-text-stroke-width: 1px;
+  paint-order: stroke fill;
+}
+
+@media (min-width: 1024px) {
+  .brand-etch {
+    -webkit-text-stroke-width: 1.5px;
+  }
+}
+
+.brand-etch-dark {
+  -webkit-text-stroke-color: color-mix(in srgb, var(--color-smaya-plum) 22%, transparent);
+}
+
+.brand-etch-light {
+  -webkit-text-stroke-color: color-mix(in srgb, white 16%, transparent);
+}
+
+/* Firefox before 128 has no -webkit-text-stroke; fall back to a faint fill
+   rather than rendering an invisible block of text. */
+@supports not (-webkit-text-stroke: 1px black) {
+  .brand-etch-dark {
+    color: color-mix(in srgb, var(--color-smaya-plum) 8%, transparent);
+  }
+  .brand-etch-light {
+    color: color-mix(in srgb, white 7%, transparent);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   R3F canvas sizing fallback.
+
+   <Canvas> applies `style`/`className` to its CONTAINER; the inner <canvas> is
+   sized by a ResizeObserver. Where that observer is slow or absent the canvas
+   sits at its 300x150 default, so this pins it to the container. Harmless in
+   browsers where the observer works — it is already 100%/100% there.
+   --------------------------------------------------------------------------- */
+[data-webgl-stage] > div,
+[data-webgl-stage] canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Icon stroke draw-in on scroll into view (Section 4, item 12). */
+[data-motion='on'] .icon-draw svg path,
+[data-motion='on'] .icon-draw svg circle,
+[data-motion='on'] .icon-draw svg rect,
+[data-motion='on'] .icon-draw svg line,
+[data-motion='on'] .icon-draw svg polyline,
+[data-motion='on'] .icon-draw svg polygon {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+}
+
+.icon-draw[data-drawn="true"] svg path,
+.icon-draw[data-drawn="true"] svg circle,
+.icon-draw[data-drawn="true"] svg rect,
+.icon-draw[data-drawn="true"] svg line,
+.icon-draw[data-drawn="true"] svg polyline,
+.icon-draw[data-drawn="true"] svg polygon {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s var(--ease-smaya);
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion — kill the decorative layers outright, keep opacity fades.
+   The custom cursor, particle field and black-hole transition additionally
+   refuse to mount at all (see the useReducedMotion / usePointerFine hooks).
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-motion='on'] .reveal-line {
+    clip-path: none;
+    transform: none;
+    opacity: 1;
+  }
+
+  [data-motion='on'] .icon-draw svg path,
+  [data-motion='on'] .icon-draw svg circle,
+  [data-motion='on'] .icon-draw svg rect,
+  [data-motion='on'] .icon-draw svg line,
+  [data-motion='on'] .icon-draw svg polyline,
+  [data-motion='on'] .icon-draw svg polygon,
+  [data-motion='on'] .path-draw {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+
+}
+
+/* ---------------------------------------------------------------------------
+   Corporate stacking deck — ambient background motion.
+
+   Deliberately CSS keyframes rather than framer-motion infinite loops. Six
+   cards are always on screen in the deck, so six JS-driven loops would be six
+   rAF subscriptions doing decorative work forever; these run off the main
+   thread instead. The blanket prefers-reduced-motion rule above already
+   neutralises every one of them, so no per-layer guard is needed.
+   --------------------------------------------------------------------------- */
+
+/* Slow orb wander — the base ambient for most cards. */
+@keyframes smaya-corp-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(14%, -9%, 0) scale(1.18);
+  }
+  66% {
+    transform: translate3d(-11%, 11%, 0) scale(0.9);
+  }
+}
+
+/* Counter-wander, so paired orbs never move in lockstep. */
+@keyframes smaya-corp-drift-alt {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  40% {
+    transform: translate3d(-13%, 8%, 0) scale(0.88);
+  }
+  75% {
+    transform: translate3d(9%, -12%, 0) scale(1.2);
+  }
+}
+
+/* Laser grid crawl. Animating background-position (not transform) keeps the
+   grid infinite — it tiles, so it can loop by exactly one cell and never end. */
+@keyframes smaya-corp-grid {
+  to {
+    background-position:
+      48px 0,
+      0 48px;
+  }
+}
+
+/* Neon sweep travelling the full width. */
+@keyframes smaya-corp-sweep {
+  0% {
+    transform: translateX(-70%) skewX(-12deg);
+    opacity: 0;
+  }
+  12%,
+  60% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateX(240%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+/* Organic mesh flow. */
+@keyframes smaya-corp-wave {
+  0%,
+  100% {
+    transform: translate3d(-8%, 0, 0) rotate(0deg) scale(1.05);
+    border-radius: 42% 58% 63% 37% / 45% 42% 58% 55%;
+  }
+  50% {
+    transform: translate3d(10%, -7%, 0) rotate(9deg) scale(0.95);
+    border-radius: 58% 42% 38% 62% / 60% 55% 45% 40%;
+  }
+}
+
+/* Gold light-leak shimmer. */
+@keyframes smaya-corp-shimmer {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: translate3d(0, 0, 0) skewX(-18deg);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translate3d(6%, -8%, 0) skewX(-18deg);
+  }
+}
+
+/* Bokeh rising out of frame. */
+@keyframes smaya-corp-bokeh {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.7);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(14px, -220px, 0) scale(1.25);
+    opacity: 0;
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+   Expedition diorama — frame lighting.
+
+   Only two keyframes, and that is deliberate. The depth in this section comes
+   from cursor-driven parallax, which is state, not from ambient loops; a busy
+   animated ground would fight the photograph rather than frame it. The previous
+   two designs' ten keyframes were removed with them.
+   --------------------------------------------------------------------------- */
+
+/* Specular sheen crossing the glass. Long and mostly idle — a frequent sweep
+   reads as a loading shimmer rather than light moving over a surface. */
+@keyframes smaya-dio-sheen {
+  0%,
+  62% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+
+/* Live-telemetry pulse on the HUD's status dot. */
+@keyframes smaya-dio-live {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  70% {
+    opacity: 0.65;
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Workshop atelier — background reveal.
+
+   A slow push-in on the revealed photograph. CSS rather than framer: the layer
+   is decorative, always running while visible, and this keeps it off the main
+   thread. The blanket prefers-reduced-motion rule above neutralises it.
+   --------------------------------------------------------------------------- */
+@keyframes smaya-kenburns {
+  from {
+    transform: scale(1.06) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.16) translate3d(-1.5%, -1%, 0);
+  }
+}

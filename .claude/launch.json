@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "smaya-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "//": "3400, not 3000/3200: another project on this machine uses both, and a collision means this URL silently serves a different site. autoPort stays on as a fallback.",
+      "port": 3400,
+      "autoPort": true
+    }
+  ]
+}
