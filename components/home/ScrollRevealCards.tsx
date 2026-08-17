@@ -50,13 +50,13 @@ function CardFace({ card }: { card: Card }) {
         alt=""
         fill
         /*
-          Below `lg` these now render in HeroCardsStatic at ~82vw, so the old
-          `1px` hint is actively wrong — it was correct only while the column
-          was `hidden lg:block` and phones genuinely never saw these images.
-          Leaving it would ship a 1px-wide candidate stretched across most of
-          the screen.
+          Below `lg` these render in HeroCardsStatic at 68vw. The hint was `1px`
+          originally, which was correct only while the column was
+          `hidden lg:block` and phones genuinely never saw these images — left
+          alone it would ship a 1px-wide candidate stretched across two-thirds
+          of the screen.
         */
-        sizes="(min-width: 1024px) 512px, 82vw"
+        sizes="(min-width: 1024px) 512px, 68vw"
         loading="eager"
         className="object-cover"
       />
@@ -196,42 +196,60 @@ export function ScrollRevealCards({
  * `hidden lg:block`, and why the cards were simply absent on mobile rather than
  * merely restyled.
  *
- * So mobile gets a different mechanism for the same content: a swipeable strip,
- * one card at a time with the next peeking. No scroll coupling, no transforms
- * to drive — the browser's own scrolling does the work, which is also why it
- * cannot get out of step with the page the way a pinned track can.
+ * So mobile gets a different mechanism for the same content: a CONTINUOUS
+ * MARQUEE, using the same CSS keyframes as the Selected Works ticker. It was a
+ * hand-swiped snap strip first; the brief since asked for automated motion at
+ * every width, and a keyframe animation is the right tool because it runs on
+ * the compositor and cannot fall out of step with the page the way a
+ * scroll-coupled track can.
  * -------------------------------------------------------------------------- */
 
 export function HeroCardsStatic() {
+  /*
+    Two identical sets, because `marquee-left` travels -50%: with one set the
+    track would run clean off the screen and leave the row empty for the rest
+    of the lap. The second is aria-hidden so a screen reader hears three
+    divisions, not six.
+
+    SPACING IS `mr-4` ON EACH CARD, NEVER A FLEX `gap`. A track of two 3-card
+    sets has five gaps, so half the track is 3 cards + 2.5 gaps while one set is
+    3 cards + 3 — the loop lands off the seam and visibly jumps every lap.
+    Margin makes every unit identical, so -50% is exactly one set.
+
+    Widths are `vw`, not `%`: a percentage inside a `w-max` track resolves
+    against a width that is itself content-derived, which is circular.
+  */
+  const deck = [TOP, MIDDLE, BOTTOM]
+
   return (
-    <ul
-      /* `scroll-px-6` matches the hero's own gutter so a snapped card lines up
-         with the headline above it rather than hugging the screen edge. */
-      className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    >
-      {[TOP, MIDDLE, BOTTOM].map((card) => (
-        <li
-          key={card.index}
-          /*
-            16/10, not the desktop deck's 4/3 — a shorter frame purely to buy
-            back hero height on a phone, where these cards were added to a
-            section that was already a full viewport. At 375 that is 268x167
-            rather than 268x201.
-
-            Mobile-only by construction: this component renders only inside the
-            hero's `lg:hidden` branch, so the desktop deck keeps 4/3 without
-            needing a breakpoint here.
-
-            Not 16/9 — the caption sits 24px off the bottom and runs two lines,
-            so at 150px tall it would occupy half the card.
-          */
-          className="relative aspect-[16/10] w-[82%] shrink-0 snap-start"
-        >
-          <div className={FRAME}>
-            <CardFace card={card} />
+    <div className="group/herodeck w-full overflow-hidden">
+      <div
+        style={{ animationDuration: '26s' }}
+        className="flex w-max [animation-iteration-count:infinite] [animation-name:marquee-left] [animation-play-state:running] [animation-timing-function:linear] group-hover/herodeck:[animation-play-state:paused] motion-reduce:!animate-none"
+      >
+        {deck.map((card) => (
+          <div
+            key={`a-${card.index}`}
+            className="relative mr-4 aspect-[16/10] w-[68vw] shrink-0"
+          >
+            <div className={FRAME}>
+              <CardFace card={card} />
+            </div>
           </div>
-        </li>
-      ))}
-    </ul>
+        ))}
+
+        {deck.map((card) => (
+          <div
+            key={`b-${card.index}`}
+            aria-hidden
+            className="relative mr-4 aspect-[16/10] w-[68vw] shrink-0"
+          >
+            <div className={FRAME}>
+              <CardFace card={card} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

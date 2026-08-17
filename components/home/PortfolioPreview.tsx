@@ -93,41 +93,18 @@ export function PortfolioPreview() {
 
       {/* ------------------------------ Marquee --------------------------- */}
       {/*
-        THE TILT IS DESKTOP-ONLY, and the width overshoot pays for it.
+        ONE TREATMENT AT EVERY WIDTH: the ticker runs on a phone exactly as it
+        does on a desktop.
 
-        Rotating a full-width block widens its footprint by `height × sinθ` and
-        heightens it by `width × sinθ`; at 3° on a 1280px row that is roughly
-        67px of extra height and a corner that would otherwise sit inside the
-        viewport edge. `w-[112%] -ml-[6%]` covers the corners so no bare canvas
-        shows at either end.
-
-        No tilt below `sm`: a rotated horizontal scroll container fights the
-        thumb, and the gain is cosmetic.
+        THE TILT STAYS DESKTOP-ONLY, though. Rotating a full-width block widens
+        its footprint by `height × sinθ`; at 3° on a 1280px row that is ~67px of
+        extra height plus corners that would sit inside the viewport edge, which
+        is what `w-[112%] -ml-[6%]` exists to absorb. At 375px the same overhang
+        has nothing to absorb it and simply pushes the page sideways. The MOTION
+        is what was asked for; the 3° is decoration that costs a horizontal
+        scrollbar on a phone.
       */}
-      {/*
-        MOBILE GETS NO HORIZONTAL SCROLLING AT ALL.
-
-        The previous attempt kept a native scroll strip and added snap points.
-        Snapping made each drag settle cleanly, but it did not fix the actual
-        complaint: on a phone this is content you are trying to READ, and a
-        sideways strip asks for a gesture that competes with the page's own
-        vertical scroll. Two such strips stacked meant two separate sideways
-        drags to see eight cards, with the rest permanently off-screen.
-
-        Below `sm` the same cards are simply a vertical list — every card fully
-        visible, one ordinary downward scroll. The marquee is untouched from
-        `sm` up, where a wide viewport makes a moving strip a feature rather
-        than a chore.
-      */}
-      <ul className="flex flex-col gap-4 px-5 sm:hidden">
-        {items.map((item, i) => (
-          <li key={item.id}>
-            <MarqueeCard item={item} stacked priority={i === 0} />
-          </li>
-        ))}
-      </ul>
-
-      <div className="relative hidden flex-col gap-5 sm:flex sm:-rotate-3 sm:gap-6">
+      <div className="relative flex flex-col gap-5 sm:-rotate-3 sm:gap-6">
         <MarqueeRow row={ROW_ONE} direction="left" seconds={38} priority />
         <MarqueeRow row={ROW_TWO} direction="right" seconds={46} />
       </div>
@@ -152,34 +129,21 @@ function MarqueeRow({
 }) {
   return (
     /*
-      MOBILE GETS A REAL SCROLLER, NOT A SLOWER MARQUEE.
+      THE TICKER RUNS AT EVERY WIDTH.
 
-      Below `sm` this is a native horizontal scroll strip: touch-draggable,
-      momentum for free, and nothing animating. Slowing the marquee instead
-      would leave a phone running a permanent compositor animation for content
-      the reader cannot pause without a hover they do not have.
+      This was a native scroll strip below `sm` — first free-scrolling, then
+      snap-assisted — on the reasoning that a phone has no hover and therefore
+      no way to pause a moving row. The call now is the opposite: the continuous
+      motion IS the effect, so mobile gets the same clipped, animated track as
+      desktop rather than a hand-dragged one.
 
-      From `sm` up the overflow is clipped and the track animates.
+      `overflow-hidden` at all widths, and no snap anywhere: snap points on an
+      element the browser is already animating make the two fight, which is what
+      produced the stuttering drag before.
     */
     <div
       data-marquee={direction}
-      /*
-        SNAP IS THE MISSING HALF. The cards already carried `snap-start`, but a
-        snap child does nothing unless its SCROLL CONTAINER opts in — so this
-        was free-scrolling and every drag left a card sliced by the viewport
-        edge, which is what made it feel like fighting the strip.
-
-        `snap-x snap-mandatory` makes each drag settle on a card. `scroll-px-5`
-        matches the section's own gutter so a snapped card lines up with the
-        heading above it instead of hugging the bezel, and the 300px card in a
-        375px viewport leaves ~75px of the next one showing — the peek that
-        tells a thumb there IS more.
-
-        `snap-none` from `sm`: above that the track is an animated marquee, and
-        snap points on a moving element cause the browser to fight the
-        animation.
-      */
-      className="group/marquee w-full snap-x snap-mandatory scroll-px-5 overflow-x-auto overscroll-x-contain sm:w-[112%] sm:-ml-[6%] sm:snap-none sm:overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="group/marquee w-full overflow-hidden sm:w-[112%] sm:-ml-[6%] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <div
         data-track
@@ -203,10 +167,13 @@ function MarqueeRow({
           2301 — a 9px jump every single lap. Margin on each card makes every
           unit identical, so -50% lands exactly one set along.
         */
-        className={`flex w-max px-5 sm:px-0 sm:[animation-play-state:running] sm:[animation-timing-function:linear] sm:[animation-iteration-count:infinite] sm:group-hover/marquee:[animation-play-state:paused] motion-reduce:!animate-none ${
+        /* No `sm:` prefixes on the animation any more — the ticker is the
+           point, so it runs from the smallest screen up. The hover-pause is
+           harmless where there is no hover. */
+        className={`flex w-max [animation-play-state:running] [animation-timing-function:linear] [animation-iteration-count:infinite] group-hover/marquee:[animation-play-state:paused] motion-reduce:!animate-none ${
           direction === 'left'
-            ? 'sm:[animation-name:marquee-left]'
-            : 'sm:[animation-name:marquee-right]'
+            ? '[animation-name:marquee-left]'
+            : '[animation-name:marquee-right]'
         }`}
       >
         {row.map((item) => (
@@ -214,11 +181,13 @@ function MarqueeRow({
         ))}
 
         {/*
-          The second copy is what makes the loop seamless — and it is
-          `aria-hidden`, because a screen reader should hear six works, not
-          twelve. It is also `hidden sm:flex`: on a phone the reader drags the
-          strip by hand, and a duplicate set would just be the same six works
-          again with no visual cue that they had wrapped.
+          The second copy is what makes the loop seamless, and it now renders at
+          EVERY width. It used to be hidden below `sm`, which was right while
+          the phone dragged the strip by hand — but a `-50%` marquee with only
+          one set would run the track clean off the screen and leave the row
+          empty for the rest of the lap.
+
+          Still `aria-hidden`: a screen reader should hear six works, not twelve.
         */}
         {row.map((item) => (
           <MarqueeCard key={`b-${item.id}`} item={item} duplicate />
@@ -236,13 +205,10 @@ function MarqueeCard({
   item,
   duplicate = false,
   priority = false,
-  stacked = false,
 }: {
   item: PortfolioItem
   duplicate?: boolean
   priority?: boolean
-  /** Full-width card in the mobile vertical list, rather than a track unit. */
-  stacked?: boolean
 }) {
   const accent = ACCENT[item.category] ?? '#C5A880'
 
@@ -253,14 +219,10 @@ function MarqueeCard({
       data-duplicate={duplicate}
       /* `mr-*` rather than a track `gap` — see the note on the track. Every
          card must be an identical unit for -50% to land on the seam. */
-      className={`group/card relative overflow-hidden rounded-2xl border border-white/10 transition-[transform,border-color] duration-500 hover:border-[#C5A880]/60 ${
-        stacked
-          ? /* Full width of the list, taller than the track unit because it no
-               longer has to fit beside a neighbour. No hover scale: there is no
-               hover on the device this renders for. */
-            'h-[200px] w-full'
-          : 'mr-4 h-[220px] w-[300px] shrink-0 snap-start hover:scale-[1.03] sm:mr-6 sm:h-[260px] sm:w-[360px]'
-      } ${duplicate ? 'hidden sm:block' : ''}`}
+      /* `mr-*` rather than a track `gap` — every unit must be identical or the
+         -50% loop lands off the seam. Duplicates are no longer hidden on
+         mobile: the loop needs both sets at every width. */
+      className="group/card relative mr-4 h-[220px] w-[300px] shrink-0 overflow-hidden rounded-2xl border border-white/10 transition-[transform,border-color] duration-500 hover:scale-[1.03] hover:border-[#C5A880]/60 sm:mr-6 sm:h-[260px] sm:w-[360px]"
       style={{
         /* Textured ground beneath the photograph, so a slow or failed image
            leaves a rich card rather than a grey box. */
@@ -272,9 +234,7 @@ function MarqueeCard({
         src={item.img}
         alt={duplicate ? '' : item.title}
         fill
-        /* The stacked card is ~92vw, not a 360px track unit — asking for 360px
-           there would ship a candidate too small for the width it renders at. */
-        sizes={stacked ? '92vw' : '360px'}
+        sizes="360px"
         priority={priority && !duplicate}
         className="object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
       />
