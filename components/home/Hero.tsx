@@ -9,7 +9,7 @@ import { EASE_OUT } from '@/lib/animations'
 import { usePrefersReducedMotion } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 import { ButtonLink } from '@/components/ui/Button'
-import { ScrollRevealCards } from './ScrollRevealCards'
+import { HeroCardsStatic, ScrollRevealCards } from './ScrollRevealCards'
 import { StatsFooter } from './StatsFooter'
 import {
   HeroIntro,
@@ -265,8 +265,16 @@ export function Hero() {
                 NO COLUMN RULE HERE. A 1px gradient divider used to sit on this
                 cell's left edge and read as a hard vertical seam against the
                 ornate background. Do not reinstate it. */}
+            {/* Scroll-driven deck — needs the 300vh track, which only exists
+                from `lg`. */}
             <div className="hidden lg:block">
               <ScrollRevealCards progress={scrollYProgress} />
+            </div>
+
+            {/* Same three cards below `lg`, driven by the thumb instead of by
+                scroll progress. They used to be absent entirely on mobile. */}
+            <div className="lg:hidden">
+              <HeroCardsStatic />
             </div>
           </div>
         </div>

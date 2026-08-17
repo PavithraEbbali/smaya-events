@@ -148,7 +148,9 @@ export function Navbar() {
         */
         className={cn(
           'fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-[#F9F9FB] shadow-sm backdrop-blur-md transition-all duration-500',
-          isScrolled ? 'py-3' : 'py-5',
+          /* Tighter bar on a phone — the vertical padding was tuned for a
+             34px lockup that is now 28px there. */
+          isScrolled ? 'py-2.5 sm:py-3' : 'py-3.5 sm:py-5',
         )}
       >
         {/*
@@ -162,7 +164,16 @@ export function Navbar() {
           {/* The bar is light and the mobile overlay is white, so the dark
               monogram is correct in both states — no branch left to get
               wrong. */}
-          <Logo tone="dark" size={34} />
+          {/* Smaller lockup on a phone. At 34px + `text-base` the monogram and
+              wordmark together were the loudest thing on the screen, competing
+              with the hero headline directly beneath them. Desktop keeps the
+              original 34px. */}
+          <Logo
+            tone="dark"
+            size={34}
+            imageClassName="h-7 w-7 sm:h-[34px] sm:w-[34px]"
+            wordmarkClassName="text-sm sm:text-lg"
+          />
 
           {/*
             TIGHT AT `lg`, COMFORTABLE FROM `xl`.

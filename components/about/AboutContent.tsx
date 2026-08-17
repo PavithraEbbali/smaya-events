@@ -17,7 +17,6 @@ import { RevealText } from '@/components/ui/RevealText'
 import { SectionDivider } from '@/components/ui/SectionDivider'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { SplitText } from '@/components/ui/SplitText'
-import { StatsBand } from '@/components/home/StatsBand'
 
 const values = [
   {
@@ -301,7 +300,6 @@ export function AboutContent() {
       </section>
 
       {/* ============================= IMPACT ============================= */}
-      <StatsBand />
     </div>
   )
 }

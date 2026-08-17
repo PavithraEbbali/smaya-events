@@ -104,7 +104,30 @@ export function PortfolioPreview() {
         No tilt below `sm`: a rotated horizontal scroll container fights the
         thumb, and the gain is cosmetic.
       */}
-      <div className="relative flex flex-col gap-5 sm:-rotate-3 sm:gap-6">
+      {/*
+        MOBILE GETS NO HORIZONTAL SCROLLING AT ALL.
+
+        The previous attempt kept a native scroll strip and added snap points.
+        Snapping made each drag settle cleanly, but it did not fix the actual
+        complaint: on a phone this is content you are trying to READ, and a
+        sideways strip asks for a gesture that competes with the page's own
+        vertical scroll. Two such strips stacked meant two separate sideways
+        drags to see eight cards, with the rest permanently off-screen.
+
+        Below `sm` the same cards are simply a vertical list — every card fully
+        visible, one ordinary downward scroll. The marquee is untouched from
+        `sm` up, where a wide viewport makes a moving strip a feature rather
+        than a chore.
+      */}
+      <ul className="flex flex-col gap-4 px-5 sm:hidden">
+        {items.map((item, i) => (
+          <li key={item.id}>
+            <MarqueeCard item={item} stacked priority={i === 0} />
+          </li>
+        ))}
+      </ul>
+
+      <div className="relative hidden flex-col gap-5 sm:flex sm:-rotate-3 sm:gap-6">
         <MarqueeRow row={ROW_ONE} direction="left" seconds={38} priority />
         <MarqueeRow row={ROW_TWO} direction="right" seconds={46} />
       </div>
@@ -213,10 +236,13 @@ function MarqueeCard({
   item,
   duplicate = false,
   priority = false,
+  stacked = false,
 }: {
   item: PortfolioItem
   duplicate?: boolean
   priority?: boolean
+  /** Full-width card in the mobile vertical list, rather than a track unit. */
+  stacked?: boolean
 }) {
   const accent = ACCENT[item.category] ?? '#C5A880'
 
@@ -227,9 +253,14 @@ function MarqueeCard({
       data-duplicate={duplicate}
       /* `mr-*` rather than a track `gap` — see the note on the track. Every
          card must be an identical unit for -50% to land on the seam. */
-      className={`group/card relative mr-4 h-[220px] w-[300px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 transition-[transform,border-color] duration-500 hover:scale-[1.03] hover:border-[#C5A880]/60 sm:mr-6 sm:h-[260px] sm:w-[360px] ${
-        duplicate ? 'hidden sm:block' : ''
-      }`}
+      className={`group/card relative overflow-hidden rounded-2xl border border-white/10 transition-[transform,border-color] duration-500 hover:border-[#C5A880]/60 ${
+        stacked
+          ? /* Full width of the list, taller than the track unit because it no
+               longer has to fit beside a neighbour. No hover scale: there is no
+               hover on the device this renders for. */
+            'h-[200px] w-full'
+          : 'mr-4 h-[220px] w-[300px] shrink-0 snap-start hover:scale-[1.03] sm:mr-6 sm:h-[260px] sm:w-[360px]'
+      } ${duplicate ? 'hidden sm:block' : ''}`}
       style={{
         /* Textured ground beneath the photograph, so a slow or failed image
            leaves a rich card rather than a grey box. */
@@ -241,7 +272,9 @@ function MarqueeCard({
         src={item.img}
         alt={duplicate ? '' : item.title}
         fill
-        sizes="360px"
+        /* The stacked card is ~92vw, not a 360px track unit — asking for 360px
+           there would ship a candidate too small for the width it renders at. */
+        sizes={stacked ? '92vw' : '360px'}
         priority={priority && !duplicate}
         className="object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
       />

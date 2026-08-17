@@ -7,7 +7,6 @@ import { Hero } from '@/components/home/Hero'
 import { PortfolioPreview } from '@/components/home/PortfolioPreview'
 import { ServicesGrid } from '@/components/home/ServicesGrid'
 import { StatementBand } from '@/components/home/StatementBand'
-import { StatsBand } from '@/components/home/StatsBand'
 import { TestimonialsPreview } from '@/components/home/TestimonialsPreview'
 import { SectionDivider } from '@/components/ui/SectionDivider'
 
@@ -32,7 +31,6 @@ export default function HomePage() {
       <StatementBand />
       <AboutTeaser />
       <PortfolioPreview />
-      <StatsBand />
       <TestimonialsPreview />
       <SectionDivider />
       <FinalCTA />

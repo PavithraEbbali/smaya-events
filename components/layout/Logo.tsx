@@ -11,6 +11,15 @@ type Props = {
   size?: number
   href?: string | null
   showWordmark?: boolean
+  /**
+   * Responsive override for the monogram's rendered size.
+   *
+   * `size` sets the intrinsic width/height next/image needs, and normally also
+   * the CSS size via an inline style — which cannot vary by breakpoint, since
+   * an inline style beats every class. Passing classes here drops that inline
+   * style so the monogram can be one size on a phone and another on a desktop.
+   */
+  imageClassName?: string
 }
 
 /**
@@ -26,6 +35,7 @@ export function Logo({
   size = 36,
   href = '/',
   showWordmark = true,
+  imageClassName,
 }: Props) {
   const content = (
     <span className={cn('inline-flex items-center gap-2.5', className)}>
@@ -39,8 +49,9 @@ export function Logo({
         width={size}
         height={size}
         priority
-        className="shrink-0"
-        style={{ width: size, height: size }}
+        className={cn('shrink-0', imageClassName)}
+        /* Omitted when classes are supplied — an inline style would win. */
+        style={imageClassName ? undefined : { width: size, height: size }}
       />
       {showWordmark && (
         <span

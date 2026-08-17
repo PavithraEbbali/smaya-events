@@ -49,10 +49,14 @@ function CardFace({ card }: { card: Card }) {
         src={card.src}
         alt=""
         fill
-        /* Matches the rendered card (max-w-lg = 512px), and 1px below lg where
-           the column is not shown — so phones fetch the smallest candidate for
-           something they never see. */
-        sizes="(min-width: 1024px) 512px, 1px"
+        /*
+          Below `lg` these now render in HeroCardsStatic at ~82vw, so the old
+          `1px` hint is actively wrong — it was correct only while the column
+          was `hidden lg:block` and phones genuinely never saw these images.
+          Leaving it would ship a 1px-wide candidate stretched across most of
+          the screen.
+        */
+        sizes="(min-width: 1024px) 512px, 82vw"
         loading="eager"
         className="object-cover"
       />
@@ -179,5 +183,42 @@ export function ScrollRevealCards({
         <CardFace card={TOP} />
       </motion.div>
     </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- *
+ * Mobile deck
+ *
+ * The scroll-driven version above cannot work below `lg`: it reads its progress
+ * from the hero's 300vh track, and that track is `lg:h-[300vh]` — on a phone the
+ * hero is a single viewport, so `progress` never advances and all three cards
+ * would sit frozen on top of one another. That is why the column was
+ * `hidden lg:block`, and why the cards were simply absent on mobile rather than
+ * merely restyled.
+ *
+ * So mobile gets a different mechanism for the same content: a swipeable strip,
+ * one card at a time with the next peeking. No scroll coupling, no transforms
+ * to drive — the browser's own scrolling does the work, which is also why it
+ * cannot get out of step with the page the way a pinned track can.
+ * -------------------------------------------------------------------------- */
+
+export function HeroCardsStatic() {
+  return (
+    <ul
+      /* `scroll-px-6` matches the hero's own gutter so a snapped card lines up
+         with the headline above it rather than hugging the screen edge. */
+      className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {[TOP, MIDDLE, BOTTOM].map((card) => (
+        <li
+          key={card.index}
+          className="relative aspect-[4/3] w-[82%] shrink-0 snap-start"
+        >
+          <div className={FRAME}>
+            <CardFace card={card} />
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
