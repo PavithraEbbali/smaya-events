@@ -73,16 +73,36 @@ export function AboutTeaser() {
               sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover"
             />
-          </div>
 
-          <div className="mt-6 rounded-sm border-2 border-smaya-gold bg-white/90 p-7 shadow-2xl backdrop-blur-md sm:absolute sm:-bottom-8 sm:-left-8 sm:mt-0 sm:p-9">
-            <div className="mb-2 font-serif text-4xl font-black text-smaya-plum sm:text-5xl">
-              10+
-            </div>
-            <div className="text-xs font-black uppercase tracking-widest text-smaya-charcoal">
-              Years Creating
-              <br />
-              Memories
+            {/*
+              MOBILE VIGNETTE. Only exists below `sm`, because only below `sm`
+              does the badge sit ON the photograph. Its job is a contrast floor:
+              the image is a bright, high-key banquet table, so white-on-photo
+              would be unreadable without a guaranteed dark foot under it.
+            */}
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent sm:hidden"
+            />
+
+            {/*
+              THE BADGE IS INSIDE THE IMAGE FRAME ON MOBILE.
+
+              It used to be a sibling with `mt-6`, so on a phone it dropped
+              below the photo as a separate white slab — two unrelated blocks
+              where the design intends one unit. From `sm` it goes back to
+              hanging off the frame's bottom-left corner, which is why the
+              positioning classes below are split rather than replaced.
+            */}
+            <div className="absolute inset-x-4 bottom-4 rounded-sm border-2 border-smaya-gold bg-white/95 p-5 shadow-2xl backdrop-blur-md sm:inset-x-auto sm:-bottom-8 sm:-left-8 sm:p-9">
+              <div className="mb-1 font-serif text-4xl font-black text-smaya-plum sm:mb-2 sm:text-5xl">
+                10+
+              </div>
+              <div className="text-xs font-black uppercase tracking-widest text-smaya-charcoal">
+                Years Creating
+                <br />
+                Memories
+              </div>
             </div>
           </div>
         </motion.div>

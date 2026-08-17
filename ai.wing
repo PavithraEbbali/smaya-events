@@ -7607,3 +7607,53 @@ NOT DONE, DELIBERATELY:
 VERIFIED CLEAN: 8 routes at 320 -> 0 overflow; mobile drawer 9 targets, none
 under 44px, body scroll locked; no rigid text-5xl+ heading anywhere lacking a
 responsive step-down (typography scaling was already correct).
+
+
+================================================================================
+2026-08-15 — home page, mobile-only refinements (from real-device screenshots)
+================================================================================
+
+1. CURTAIN MONOGRAM WAS CENTRED ON THE WRONG BOX — and this is the one that was
+   a genuine measurement, not a style opinion. The intro's monogram wrapper was
+   `absolute inset-0 grid place-items-center`, which centres inside the nearest
+   positioned ancestor: the hero's `min-h-[100svh]` stage. That stage GROWS past
+   its minimum on a phone once headline + tagline + CTA + explore link stack up.
+   Measured at 375: stage 924 vs viewport 812, so the monogram sat 56px BELOW
+   the optical centre. It reads as "skewed" precisely because the door seam
+   beside it IS centred, so the two disagree.
+   Fixed by pinning the centring box to `inset-x-0 top-0 h-[100svh]`. The doors
+   keep `inset-0` — they should cover the whole stage.
+   DESKTOP UNAFFECTED, verified: at 1265 the stage measures 900 and the viewport
+   900, so the new box and the old one are the same rectangle.
+
+2. STATS FOOTER was `grid-cols-1` below `sm` — four full-width rows, each a 64px
+   medallion beside two lines, ~480px of scroll to read four numbers. Now
+   `grid-cols-2` from the smallest screen with the cell contents stacked and
+   centred (`flex-col ... lg:flex-row`) and the medallion at 48px until `lg`.
+   Gold hairlines via `divide-x divide-y divide-smaya-gold/15` rather than
+   per-cell borders, so the block keeps a clean outer edge.
+   Verified 375: 2 cols x 2 rows, 188px cells. 1265: 4 cols x 1 row, cells back
+   to `flex-row`, rings back to 64.
+
+3. ABOUT TEASER BADGE was a SIBLING of the image with `mt-6`, going absolute
+   only from `sm` — so on a phone it dropped below the photo as a separate white
+   slab. Moved INSIDE the image frame and made `absolute inset-x-4 bottom-4`,
+   with `sm:inset-x-auto sm:-bottom-8 sm:-left-8` restoring the corner overhang.
+   A `from-black/80 via-black/40` vignette was added `sm:hidden` — it exists only
+   where the badge sits on the photograph, and its job is a contrast floor,
+   since the image is a bright high-key banquet table.
+   Verified 375: badge inside the frame (303 wide in 335). 1265: hangs off the
+   corner exactly as before, 32px below the frame.
+
+4. MARQUEE HAD SNAP CHILDREN AND NO SNAP CONTAINER. The cards already carried
+   `snap-start`, but a snap child does nothing unless its SCROLL CONTAINER opts
+   in — so mobile was free-scrolling and every drag left a card sliced by the
+   viewport edge. That is what made it feel like fighting the strip, not the
+   horizontal scrolling itself. Added `snap-x snap-mandatory scroll-px-5`, and
+   `sm:snap-none` because above that the track is an animated marquee and snap
+   points on a moving element make the browser fight the animation.
+   Verified 375: `x mandatory`, 300px card, 55px peek. 1265: `none` + clipped.
+
+NOTE: the 10px (mobile) / 6px (desktop) document overflow reported during this
+work is the SAME frozen-rAF artifact retracted earlier — re-confirmed by
+differential here: removing every stuck inline translate takes it to 0.

@@ -140,7 +140,23 @@ function MarqueeRow({
     */
     <div
       data-marquee={direction}
-      className="group/marquee w-full overflow-x-auto overscroll-x-contain sm:w-[112%] sm:-ml-[6%] sm:overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      /*
+        SNAP IS THE MISSING HALF. The cards already carried `snap-start`, but a
+        snap child does nothing unless its SCROLL CONTAINER opts in — so this
+        was free-scrolling and every drag left a card sliced by the viewport
+        edge, which is what made it feel like fighting the strip.
+
+        `snap-x snap-mandatory` makes each drag settle on a card. `scroll-px-5`
+        matches the section's own gutter so a snapped card lines up with the
+        heading above it instead of hugging the bezel, and the 300px card in a
+        375px viewport leaves ~75px of the next one showing — the peek that
+        tells a thumb there IS more.
+
+        `snap-none` from `sm`: above that the track is an animated marquee, and
+        snap points on a moving element cause the browser to fight the
+        animation.
+      */
+      className="group/marquee w-full snap-x snap-mandatory scroll-px-5 overflow-x-auto overscroll-x-contain sm:w-[112%] sm:-ml-[6%] sm:snap-none sm:overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <div
         data-track

@@ -84,7 +84,9 @@ function MetallicRing({ Icon }: { Icon: LucideIcon }) {
   return (
     <div
       aria-hidden
-      className="h-16 w-16 flex-shrink-0 rounded-full bg-gradient-to-b from-[#E0B95B] to-[#8C6D23] p-[2px] shadow-lg"
+      /* The whole bezel scales from this one pair of values — 48px two-up,
+         64px once the row goes four across. */
+      className="h-12 w-12 flex-shrink-0 rounded-full bg-gradient-to-b from-[#E0B95B] to-[#8C6D23] p-[2px] shadow-lg lg:h-16 lg:w-16"
     >
       <div className="h-full w-full rounded-full bg-[#11041C] p-[3px]">
         <div className="flex h-full w-full items-center justify-center rounded-full border border-[#D4AF37]/70">
@@ -179,7 +181,10 @@ function StatCard({
             ? undefined
             : { rotateX, rotateY, transformStyle: 'preserve-3d' }
         }
-        className="flex h-full items-center gap-5 rounded-lg border border-transparent p-6 transition-colors duration-500 hover:border-white/10 hover:bg-white/[0.02] lg:px-10 lg:py-8"
+        /* Stacked and centred while two-up — a 64px medallion beside text in a
+           ~187px cell leaves the label nowhere to go. Side-by-side returns at
+           `lg`, where the row is four across and wide again. */
+        className="flex h-full flex-col items-center gap-3 rounded-lg border border-transparent p-5 text-center transition-colors duration-500 hover:border-white/10 hover:bg-white/[0.02] lg:flex-row lg:items-center lg:gap-5 lg:px-10 lg:py-8 lg:text-left"
       >
         <MetallicRing Icon={Icon} />
 
@@ -235,7 +240,19 @@ export function StatsFooter({ className }: { className?: string }) {
         initial="hidden"
         whileInView="show"
         viewport={viewportOnce}
-        className="grid w-full grid-cols-1 border-t border-white/10 sm:grid-cols-2 lg:grid-cols-4"
+        /*
+          2x2 FROM THE SMALLEST SCREEN, not a single column.
+
+          `grid-cols-1` meant four full-width rows, each a 64px medallion beside
+          two lines of text — roughly 480px of scrolling to read four numbers,
+          and every row mostly empty space. A 2x2 says the same thing in a
+          quarter of the height and reads as a set rather than a list.
+
+          The gold hairlines are what stop the four cells looking like loose
+          text: `divide` draws them BETWEEN cells only, so the block keeps a
+          clean outer edge against the section above it.
+        */
+        className="grid w-full grid-cols-2 divide-x divide-y divide-smaya-gold/15 border-t border-white/10 lg:grid-cols-4 lg:divide-y-0"
       >
         {stats.map((stat, i) => (
           <StatCard

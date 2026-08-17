@@ -218,8 +218,27 @@ export function HeroIntro({ decision }: { decision: IntroDecision }) {
         </div>
       </div>
 
-      {/* Monogram + drawn ring, above the doors so the well can swallow it */}
-      <div className="absolute inset-0 z-[5] grid place-items-center">
+      {/*
+        Monogram + drawn ring, above the doors so the well can swallow it.
+
+        CENTRED ON THE VIEWPORT, NOT ON THE STAGE — measured, not guessed.
+
+        This used to be `inset-0`, which centres inside the positioned ancestor:
+        the hero's `min-h-[100svh]` stage. On a phone that stage GROWS past its
+        minimum once the headline, tagline, CTA and explore link stack up — 924px
+        against an 812px viewport at 375 — so `place-items-center` was centring
+        in a box 112px taller than the screen and the monogram sat 56px BELOW the
+        optical centre. It reads as a skew because the door seam beside it is
+        genuinely centred, so the two disagree.
+
+        Pinning the box to `top-0 h-[100svh]` makes the centre the middle of what
+        the visitor can actually see. The doors keep `inset-0` — they SHOULD
+        cover the whole stage.
+
+        Desktop is unaffected: from `lg` the stage is `h-svh` exactly, so this
+        box and the old one are the same rectangle.
+      */}
+      <div className="absolute inset-x-0 top-0 z-[5] grid h-[100svh] place-items-center">
         <div ref={markRef} className="relative opacity-0 will-change-transform">
           <svg
             viewBox="0 0 160 160"
