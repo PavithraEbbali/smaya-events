@@ -212,7 +212,20 @@ export function HeroCardsStatic() {
       {[TOP, MIDDLE, BOTTOM].map((card) => (
         <li
           key={card.index}
-          className="relative aspect-[4/3] w-[82%] shrink-0 snap-start"
+          /*
+            16/10, not the desktop deck's 4/3 — a shorter frame purely to buy
+            back hero height on a phone, where these cards were added to a
+            section that was already a full viewport. At 375 that is 268x167
+            rather than 268x201.
+
+            Mobile-only by construction: this component renders only inside the
+            hero's `lg:hidden` branch, so the desktop deck keeps 4/3 without
+            needing a breakpoint here.
+
+            Not 16/9 — the caption sits 24px off the bottom and runs two lines,
+            so at 150px tall it would occupy half the card.
+          */
+          className="relative aspect-[16/10] w-[82%] shrink-0 snap-start"
         >
           <div className={FRAME}>
             <CardFace card={card} />
