@@ -15,6 +15,7 @@ import { ArrowRight, CalendarDays, MapPin } from 'lucide-react'
 import type { UpcomingEvent } from '@/data/events'
 import { usePrefersReducedMotion } from '@/lib/hooks'
 import { getLenis } from '@/lib/lenis-instance'
+import { cn } from '@/lib/utils'
 import { Atmosphere } from '@/components/ui/Atmosphere'
 
 /* -------------------------------------------------------------------------- *
@@ -185,7 +186,20 @@ export function EventsList({ events }: { events: UpcomingEvent[] }) {
             <ul
               data-deck
               onMouseLeave={() => setHovered(null)}
-              className="flex h-[560px] flex-col gap-3 md:h-[520px] md:flex-row md:gap-4"
+              /* 640px on mobile, not 560: the open panel used to overlay its copy on
+                 the artwork, so the panel only had to be as tall as the taller of
+                 the two. Stacking them means it needs the SUM, and at 560 the
+                 detail block ran 59px past the panel and `overflow-hidden` ate
+                 the CTA.
+
+                 680 rather than the 640 that just fits: the longest entry
+                 ("Corporate Wellness Camp", two-line title plus a three-line
+                 description) needs ~394px of the 400 a 640px deck gives it. Six
+                 pixels is not headroom — this project has already had two
+                 builds where the webfont failed to load, and fallback metrics
+                 are exactly what turns a three-line description into four.
+                 `md:h-[520px]` is untouched. */
+              className="flex h-[680px] flex-col gap-3 md:h-[520px] md:flex-row md:gap-4"
             >
               {events.map((event, i) => (
                 <EventPanel
@@ -274,30 +288,54 @@ function EventPanel({
       }}
     >
       {/* ------------------------------ Artwork ---------------------------- */}
-      {!failed && (
-        <Image
-          src={event.img}
-          alt=""
-          fill
-          sizes="(min-width: 768px) 60vw, 100vw"
-          onError={() => setFailed(true)}
-          className="object-cover transition-transform duration-700 ease-out"
-          style={{ transform: isOpen ? 'scale(1.04)' : 'scale(1)' }}
-          /* Decorative: the heading carries the meaning, so `alt` stays empty
-             rather than naming the event twice to a screen reader. */
-        />
-      )}
+      {/*
+        ON MOBILE THE OPEN PANEL IS A VERTICAL SPLIT, NOT AN OVERLAY.
 
-      {/* Legibility floor. A photograph's local brightness is unknowable, so
-          contrast is guaranteed here rather than hoped for. */}
+        The artwork is `fill`, so it covered the whole panel and the detail
+        block sat on top of it — which on a phone meant the frosted card
+        obscured most of the photograph it was describing. Confining the image
+        to a fixed top band while open gives the picture its own unobstructed
+        region and leaves the copy on the panel's own dark ground below.
+
+        `max-md:` rather than a `md:` reset, so DESKTOP NEVER SEES THIS RULE at
+        all: above 768px the wrapper stays a plain `inset-0` and the overlay
+        composition is byte-for-byte what it was.
+
+        A fixed 190px, not a percentage: percentage PADDING resolves against
+        width, and a percentage height needs a definite parent height, which a
+        flex item mid-`flexGrow`-animation is not reliably going to give.
+      */}
       <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background:
-            'linear-gradient(to top, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 38%, rgba(5,5,5,0.34) 70%, rgba(5,5,5,0.22) 100%)',
-        }}
-      />
+        className={cn(
+          'absolute inset-0',
+          isOpen && 'max-md:bottom-auto max-md:h-[170px]',
+        )}
+      >
+        {!failed && (
+          <Image
+            src={event.img}
+            alt=""
+            fill
+            sizes="(min-width: 768px) 60vw, 100vw"
+            onError={() => setFailed(true)}
+            className="object-cover transition-transform duration-700 ease-out"
+            style={{ transform: isOpen ? 'scale(1.04)' : 'scale(1)' }}
+            /* Decorative: the heading carries the meaning, so `alt` stays empty
+               rather than naming the event twice to a screen reader. */
+          />
+        )}
+
+        {/* Legibility floor. A photograph's local brightness is unknowable, so
+            contrast is guaranteed here rather than hoped for. */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(to top, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.72) 38%, rgba(5,5,5,0.34) 70%, rgba(5,5,5,0.22) 100%)',
+          }}
+        />
+      </div>
 
       {/* Hover glow as its own layer — animating `box-shadow` on the panel
           would compete with the scale for the same compositor work. */}
@@ -342,7 +380,14 @@ function EventPanel({
       {/* ------------------------------ Content ---------------------------- */}
       {/* `pointer-events-none` so the button beneath stays clickable across the
           whole panel; the CTA re-enables them for itself. */}
-      <div className="pointer-events-none relative z-20 flex h-full flex-col justify-end p-4 sm:p-5">
+      <div
+        className={cn(
+          'pointer-events-none relative z-20 flex h-full flex-col justify-end p-4 sm:p-5',
+          /* Clears the 190px image band so the copy starts below the picture
+             instead of on it. Desktop is untouched. */
+          isOpen && 'max-md:justify-start max-md:pt-[182px]',
+        )}
+      >
         {/*
           THE PILL BELONGS TO THE OPEN STATE ONLY.
 
@@ -399,7 +444,12 @@ function EventPanel({
               animate={{ opacity: 1, y: 0 }}
               exit={reduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
               transition={SPRING}
-              className="min-w-0 rounded-xl border border-white/10 bg-[#121115]/90 p-4 backdrop-blur-xl"
+              /* The frosted box existed to separate the copy FROM the
+                  photograph. Below `md` the copy is no longer on the
+                  photograph, so the box is just a second frame inside a frame —
+                  it is what made the card read as cramped. Dropped there,
+                  unchanged above. */
+              className="min-w-0 rounded-xl border border-white/10 bg-[#121115]/90 p-4 backdrop-blur-xl max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:backdrop-blur-none"
             >
               <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="flex items-center gap-1.5">
