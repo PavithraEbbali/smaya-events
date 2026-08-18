@@ -60,13 +60,18 @@ const WHEEL_LOCK_MS = 500
 /**
  * The mobile "burst" entrance.
  *
- * Stiff and lightly damped on purpose — 400/25 overshoots slightly before it
- * settles, and that overshoot is what reads as a pop rather than a fade.
+ * Stiff and lightly damped on purpose — 350/22 overshoots before it settles,
+ * and that overshoot is what reads as a pop rather than a fade. Softer damping
+ * than the 400/25 this started at, so the bounce is visible rather than merely
+ * fast.
  */
-const BURST: Transition = { type: 'spring', stiffness: 400, damping: 25 }
+const BURST: Transition = { type: 'spring', stiffness: 350, damping: 22 }
 
-/** Dwell per card while auto-advancing on mobile. */
-const AUTO_ADVANCE_MS = 2000
+/**
+ * How long a card sits still AFTER its burst has finished, before the deck
+ * moves on. The total per slide is therefore burst + this, not a flat interval.
+ */
+const HOLD_MS = 1000
 /** How long a manual tap holds the carousel still before it resumes. */
 const AUTO_RESUME_MS = 8000
 
@@ -123,32 +128,52 @@ export function FeatureCarousel({ slides, label, className }: Props) {
   )
 
   /*
-    AUTO-ADVANCE — MOBILE ONLY.
+    AUTO-ADVANCE — MOBILE ONLY, AND CHAINED TO THE BURST RATHER THAN TO A CLOCK.
 
-    `window.innerWidth < 768` is checked INSIDE the tick rather than in the
-    dependency array, for the same reason the hero deck reads scrollLeft at tick
-    time: a width in the deps would tear down and rebuild the interval on every
-    resize frame, and a stale closure would otherwise keep the desktop decision
-    from first render forever.
+    This was a flat 2s interval. The problem with a flat interval is that it
+    knows nothing about the animation: the burst takes whatever it takes, so the
+    time a card actually sits STILL varied with it, and the two could drift into
+    advancing mid-pop. The sequence is now explicit — the burst finishes, the
+    card holds for exactly HOLD_MS, then the deck moves. Total per slide is
+    burst + 1s rather than a fixed 2s that has to contain both.
 
-    It WRAPS where the arrows clamp. An auto-advance that stops dead on the last
-    slide is worse than none — it looks broken rather than finished — and the
-    brief asks for cards that cycle. The manual arrows keep their end-stops, so
+    TWO THINGS SCHEDULE IT, ON PURPOSE. `onAnimationComplete` is the accurate
+    trigger, but a chain with a single link stalls forever if that link never
+    fires — reduced motion renders no wrapper, a backgrounded tab may not
+    settle, and a paused deck stops mid-chain. So the effect below also
+    schedules on every `active` change, and both paths clear the pending timer
+    first, so the later scheduler simply wins. The sequence can be delayed but
+    it cannot die.
+
+    It WRAPS where the arrows clamp: an auto-advance that stops dead on the last
+    slide looks broken rather than finished. The arrows keep their end-stops, so
     desktop behaviour is untouched.
-
-    Reduced motion switches it off entirely: this is unrequested movement, which
-    is exactly what that setting exists to stop.
   */
-  useEffect(() => {
+  const holdTimer = useRef<number | undefined>(undefined)
+
+  const clearHold = useCallback(() => {
+    if (holdTimer.current) window.clearTimeout(holdTimer.current)
+    holdTimer.current = undefined
+  }, [])
+
+  const scheduleNext = useCallback(() => {
+    clearHold()
     if (paused || reduced || count < 2) return
+    /* Read at schedule time, never from a dependency: a width in the deps would
+       rebuild this on every resize frame, and a captured value would freeze the
+       desktop decision made on first render. */
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return
+    if (document.hidden) return
 
-    const id = window.setInterval(() => {
-      if (document.hidden || window.innerWidth >= 768) return
+    holdTimer.current = window.setTimeout(() => {
       setActive((prev) => (prev + 1) % count)
-    }, AUTO_ADVANCE_MS)
+    }, HOLD_MS)
+  }, [paused, reduced, count, clearHold])
 
-    return () => window.clearInterval(id)
-  }, [paused, reduced, count])
+  useEffect(() => {
+    scheduleNext()
+    return clearHold
+  }, [active, scheduleNext, clearHold])
 
   /*
     The FIRST positioning must not animate.
@@ -519,9 +544,12 @@ export function FeatureCarousel({ slides, label, className }: Props) {
               {isActive && isMobile && !reduced ? (
                 <motion.div
                   key={active}
-                  initial={{ scale: 0.85, opacity: 0, y: 10 }}
+                  initial={{ scale: 0.8, opacity: 0, y: 15 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={BURST}
+                  /* The hold starts when the pop finishes, not when it starts —
+                     this is the link that makes the sequence a sequence. */
+                  onAnimationComplete={scheduleNext}
                 >
                   {slide.render(isActive)}
                 </motion.div>
