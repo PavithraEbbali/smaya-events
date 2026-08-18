@@ -106,10 +106,41 @@ export function AboutContent() {
                   sizes="(max-width: 768px) 100vw, 50vw"
                   className="object-cover"
                 />
+
+                {/*
+                  MOBILE VIGNETTE. Exists only below `md`, because only below
+                  `md` does the badge sit ON the photograph. Its job is a
+                  contrast floor rather than decoration: this is a bright,
+                  high-key banquet image, so the badge's white ground and its
+                  gold border would both wash out against it without a
+                  guaranteed dark foot underneath.
+                */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent md:hidden"
+                />
               </div>
 
-              <div className="mt-6 rounded-sm border-2 border-smaya-gold bg-white/90 p-8 shadow-2xl backdrop-blur-md md:absolute md:-bottom-8 md:-left-8 md:mt-0 md:p-10">
-                <div className="mb-2 font-serif text-4xl font-black text-smaya-plum md:text-5xl">
+              {/*
+                THE BADGE IS A SIBLING OF THE FRAME, NOT A CHILD — a
+                correctness constraint, not a style choice.
+
+                The frame above is `overflow-hidden`, which it needs to be to
+                clip the photo to its rounded corners. From `md` the design
+                hangs this badge off the frame's bottom-left corner at
+                `-bottom-8 -left-8`; nested inside, that overhang would be
+                clipped away. The same mistake on the home page cost 32px from
+                the left and 32px from the bottom — 32% of the badge simply not
+                painted on desktop.
+
+                Anchored to this wrapper instead, which has no clip, one element
+                serves both: pinned inside the picture below `md`, hanging
+                outside it above. The wrapper's height is the frame's height
+                because the badge is out of flow, so `bottom-4` reads as 4px up
+                from the photo's own bottom edge.
+              */}
+              <div className="absolute inset-x-4 bottom-4 rounded-sm border-2 border-smaya-gold bg-white/95 p-6 shadow-2xl backdrop-blur-md md:inset-x-auto md:-bottom-8 md:-left-8 md:p-10">
+                <div className="mb-1 font-serif text-4xl font-black text-smaya-plum md:mb-2 md:text-5xl">
                   10+
                 </div>
                 <div className="text-xs font-black uppercase tracking-widest text-smaya-charcoal">

@@ -85,24 +85,33 @@ export function AboutTeaser() {
               className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent sm:hidden"
             />
 
-            {/*
-              THE BADGE IS INSIDE THE IMAGE FRAME ON MOBILE.
+          </div>
 
-              It used to be a sibling with `mt-6`, so on a phone it dropped
-              below the photo as a separate white slab — two unrelated blocks
-              where the design intends one unit. From `sm` it goes back to
-              hanging off the frame's bottom-left corner, which is why the
-              positioning classes below are split rather than replaced.
-            */}
-            <div className="absolute inset-x-4 bottom-4 rounded-sm border-2 border-smaya-gold bg-white/95 p-5 shadow-2xl backdrop-blur-md sm:inset-x-auto sm:-bottom-8 sm:-left-8 sm:p-9">
-              <div className="mb-1 font-serif text-4xl font-black text-smaya-plum sm:mb-2 sm:text-5xl">
-                10+
-              </div>
-              <div className="text-xs font-black uppercase tracking-widest text-smaya-charcoal">
-                Years Creating
-                <br />
-                Memories
-              </div>
+          {/*
+            THE BADGE IS A SIBLING OF THE FRAME, NOT A CHILD — and that is a
+            correctness constraint, not a preference.
+
+            The frame is `overflow-hidden` (it has to be, to clip the photo to
+            its rounded corners). Putting the badge inside it meant that from
+            `sm`, where the design hangs the badge off the frame's bottom-left
+            corner at `-bottom-8 -left-8`, the frame clipped the overhang:
+            measured 32px lost from the left and 32px from the bottom, leaving
+            only 67.6% of the badge painted.
+
+            As a sibling it is positioned against this wrapper instead, which
+            has no clip — so mobile can pin it to `inset-x-4 bottom-4` INSIDE
+            the picture, and desktop can hang it outside, from the same element.
+            The wrapper's height is the frame's height, because the badge is out
+            of flow, so `bottom-4` means 4px up from the photo's bottom edge.
+          */}
+          <div className="absolute inset-x-4 bottom-4 rounded-sm border-2 border-smaya-gold bg-white/95 p-5 shadow-2xl backdrop-blur-md sm:inset-x-auto sm:-bottom-8 sm:-left-8 sm:p-9">
+            <div className="mb-1 font-serif text-4xl font-black text-smaya-plum sm:mb-2 sm:text-5xl">
+              10+
+            </div>
+            <div className="text-xs font-black uppercase tracking-widest text-smaya-charcoal">
+              Years Creating
+              <br />
+              Memories
             </div>
           </div>
         </motion.div>
