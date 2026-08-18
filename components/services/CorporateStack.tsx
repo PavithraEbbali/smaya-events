@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Image from 'next/image'
-import { motion, useScroll, useTransform, type MotionValue } from 'framer-motion'
+import { AnimatePresence, motion, useScroll, useTransform, type MotionValue } from 'framer-motion'
 import { ArrowUpRight, Plus } from 'lucide-react'
 
 import type { VerticalService } from '@/data/verticals'
@@ -750,7 +750,7 @@ function StackCard({
       data-revealed={revealed}
       data-override={String(override)}
       data-open={open}
-      style={{ top, marginBottom: index === total - 1 ? 0 : 28 }}
+      style={{ top, zIndex: phase === 'active' ? 20 : 1, marginBottom: index === total - 1 ? 0 : 28 }}
     >
       <motion.article
         /*
@@ -1109,26 +1109,36 @@ function CardVisual({
             z={6}
             translucent
           />
-          {!reduced && open && (
-            <div aria-hidden className="pointer-events-none absolute inset-0 z-[7]">
-              {BOKEH.map((b, i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: [0, 0.8, 0], y: -60 }}
-                  transition={{ duration: 4 + i * 0.6, repeat: Infinity, delay: i * 0.5 }}
-                  className="absolute rounded-full blur-[2px]"
-                  style={{
-                    left: b.left,
-                    top: b.top,
-                    width: b.size,
-                    height: b.size,
-                    backgroundColor: theme.accent,
-                  }}
-                />
-              ))}
-            </div>
-          )}
+          <AnimatePresence>
+            {!reduced && open && (
+              <motion.div
+                key="bokeh"
+                aria-hidden
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                className="pointer-events-none absolute inset-0 z-[7]"
+              >
+                {BOKEH.map((b, i) => (
+                  <motion.span
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: [0, 0.8, 0], y: -60 }}
+                    transition={{ duration: 4 + i * 0.6, repeat: Infinity, delay: i * 0.5 }}
+                    className="absolute rounded-full blur-[2px]"
+                    style={{
+                      left: b.left,
+                      top: b.top,
+                      width: b.size,
+                      height: b.size,
+                      backgroundColor: theme.accent,
+                    }}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
           {(['left', 'right'] as const).map((side) => (
             <motion.div
               key={side}

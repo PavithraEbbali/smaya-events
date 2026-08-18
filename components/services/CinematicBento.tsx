@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { motion, type Transition } from 'framer-motion'
+import { AnimatePresence, motion, type Transition } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 
 import type { ServiceCategory } from '@/data/services'
@@ -201,14 +201,16 @@ function BentoTile({
       onMouseLeave={() => setHovered(false)}
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={() => setFocused(false)}
-      className={`group relative isolate min-h-[400px] overflow-hidden rounded-3xl border sm:min-h-[340px] lg:min-h-0 ${tile.span}`}
+      layout="position"
+      layoutId={`bento-${tile.badge}`}
+      className={`group relative isolate min-h-[400px] rounded-3xl border sm:min-h-[340px] lg:min-h-0 ${tile.span}`}
       style={{ backgroundColor: '#050505' }}
       initial={false}
       animate={{
         scale: lifted ? 1.02 : 1,
         /* The scaled tile has to sit above its neighbours, or it grows
            underneath them and the lift reads as a glitch. */
-        zIndex: lifted ? 10 : 1,
+        zIndex: lifted ? 50 : 1,
         borderColor: lifted ? `${tile.accent}88` : 'rgba(255,255,255,0.10)',
         boxShadow: lifted
           ? `0 30px 70px -30px rgba(0,0,0,0.95), 0 0 46px -12px ${tile.accent}66`
@@ -217,29 +219,21 @@ function BentoTile({
       transition={LIFT}
     >
       {/* ------------------------------ Artwork ---------------------------- */}
-      <Image
-        src={tile.art}
-        alt=""
-        fill
-        sizes="(min-width: 1024px) 640px, (min-width: 768px) 50vw, 92vw"
-        className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-        /* Decorative: the heading carries the meaning, so `alt` stays empty
-           rather than reading the category twice to a screen reader. */
-      />
+      <div className="absolute inset-0 overflow-hidden rounded-3xl">
+        <Image
+          src={tile.art}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 640px, (min-width: 768px) 50vw, 92vw"
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+        />
 
-      {/*
-        THE LEGIBILITY FLOOR, and why it is two layers.
-
-        A photograph's local brightness is unknowable, so contrast has to be
-        guaranteed by what sits above it rather than hoped for. The flat wash
-        sets a worst case for the whole tile; the bottom-weighted gradient then
-        buys extra darkness exactly where the copy sits.
-      */}
-      <div aria-hidden className="absolute inset-0 bg-[#050505]/58" />
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/78 to-transparent"
-      />
+        <div aria-hidden className="absolute inset-0 bg-[#050505]/58" />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/78 to-transparent"
+        />
+      </div>
 
       {/* ------------------------------ Content ---------------------------- */}
       <div className="relative flex h-full flex-col justify-end p-5 sm:p-6">
@@ -285,57 +279,56 @@ function BentoTile({
           by a hover. `overflow-hidden` is what makes the height animation read
           as a wipe instead of a squash.
         */}
-        <motion.div
-          data-panel
-          initial={false}
-          animate={
-            reduced
-              ? { height: 'auto', opacity: 1 }
-              : { height: revealed ? 'auto' : 0, opacity: revealed ? 1 : 0 }
-          }
-          transition={GLIDE}
-          className="overflow-hidden"
-        >
-          <span
-            aria-hidden
-            className="mb-3 mt-4 block h-px w-full"
-            style={{ background: `linear-gradient(90deg, ${tile.accent}66, transparent)` }}
-          />
+        <AnimatePresence initial={false}>
+          {revealed && (
+            <motion.div
+              key="panel"
+              data-panel
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={GLIDE}
+              className="overflow-hidden"
+            >
+              <span
+                aria-hidden
+                className="mb-3 mt-4 block h-px w-full"
+                style={{ background: `linear-gradient(90deg, ${tile.accent}66, transparent)` }}
+              />
 
-          <ul className="flex flex-wrap gap-1.5">
-            {category.services.map((service) => (
-              <li
-                key={service.title}
-                data-service={service.title}
-                className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1 text-[11px] font-medium leading-[1.5] text-white/85 backdrop-blur-sm"
-              >
-                {service.title}
-              </li>
-            ))}
-          </ul>
+              <ul className="flex flex-wrap gap-1.5">
+                {category.services.map((service) => (
+                  <li
+                    key={service.title}
+                    data-service={service.title}
+                    className="rounded-full border border-white/15 bg-black/35 px-2.5 py-1 text-[11px] font-medium leading-[1.5] text-white/85 backdrop-blur-sm"
+                  >
+                    {service.title}
+                  </li>
+                ))}
+              </ul>
 
-          {/* Through-links keep every vertical page reachable from this hub —
-              including the two with no tile of their own. They live inside the
-              panel, which is why focus has to open it. */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {category.relatedSlugs.map((slug) => (
-              <Link
-                key={slug}
-                href={`/services/${slug}`}
-                data-through-link
-                className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
-                style={{
-                  borderColor: `${tile.accent}66`,
-                  color: tile.accent,
-                  ['--tw-ring-color' as string]: tile.accent,
-                }}
-              >
-                {verticals[slug].name}
-                <ArrowRight size={11} aria-hidden />
-              </Link>
-            ))}
-          </div>
-        </motion.div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {category.relatedSlugs.map((slug) => (
+                  <Link
+                    key={slug}
+                    href={`/services/${slug}`}
+                    data-through-link
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
+                    style={{
+                      borderColor: `${tile.accent}66`,
+                      color: tile.accent,
+                      ['--tw-ring-color' as string]: tile.accent,
+                    }}
+                  >
+                    {verticals[slug].name}
+                    <ArrowRight size={11} aria-hidden />
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.article>
   )
