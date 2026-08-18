@@ -55,18 +55,6 @@ export function useWideViewport() {
   return useMediaQuery('(min-width: 640px)')
 }
 
-/**
- * True once the viewport is confirmed NARROWER than `md` (767px and below).
- *
- * Same caveat as `useWideViewport`: this starts `false` and corrects itself in
- * an effect, so it is safe for TIMING and ANIMATION decisions and unsafe for
- * layout ones. Being briefly wrong about which entrance a card plays is
- * invisible; being briefly wrong about where the card sits is a jump.
- */
-export function useMobileViewport() {
-  return useMediaQuery('(max-width: 767px)')
-}
-
 /** Honours the OS "reduce motion" setting. */
 export function usePrefersReducedMotion() {
   return useMediaQuery('(prefers-reduced-motion: reduce)')

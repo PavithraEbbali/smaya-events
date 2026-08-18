@@ -17,7 +17,7 @@ import {
 } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { useMobileViewport, usePrefersReducedMotion } from '@/lib/hooks'
+import { usePrefersReducedMotion } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 
 type Slide = {
@@ -80,16 +80,6 @@ const BURST: Transition = { type: 'spring', stiffness: 400, damping: 20 }
 const SLIDE_SPRING: Transition = { type: 'spring', stiffness: 260, damping: 32 }
 
 
-/** How long each card holds before the deck moves on, on mobile. */
-const AUTO_ADVANCE_MS = 2500
-/**
- * How long a manual tap holds the carousel still before it resumes.
- *
- * 5s, down from 8. Long enough not to snatch a card away from someone who just
- * tapped to look at it, short enough that a reader tapping through several
- * cards never concludes the auto-advance is broken.
- */
-const AUTO_RESUME_MS = 5000
 
 /**
  * A centre-focused carousel: one prominent slide, its neighbours scaled back
@@ -107,77 +97,13 @@ export function FeatureCarousel({ slides, label, className }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLDivElement | null)[]>([])
   const reduced = usePrefersReducedMotion()
-  const isMobile = useMobileViewport()
 
   const count = slides.length
 
-  /*
-    Manual interaction suspends the auto-advance. `paused` is a timestamp-free
-    boolean cleared by a timeout, so a reader who taps an arrow gets a clear
-    window to read before the carousel starts moving again.
-  */
-  const [paused, setPaused] = useState(false)
-  const resumeTimer = useRef<number | undefined>(undefined)
-
-  const suspendAuto = useCallback(() => {
-    setPaused(true)
-    if (resumeTimer.current) window.clearTimeout(resumeTimer.current)
-    resumeTimer.current = window.setTimeout(() => setPaused(false), AUTO_RESUME_MS)
-  }, [])
-
-  useEffect(
-    () => () => {
-      if (resumeTimer.current) window.clearTimeout(resumeTimer.current)
-    },
-    [],
-  )
-
   const go = useCallback(
-    (next: number) => {
-      /* Clamped, NOT wrapped — this is the manual path and it is shared with
-         desktop, where the end-stop and the disabled arrow are the existing
-         behaviour. Only the timer below wraps. */
-      setActive(Math.max(0, Math.min(count - 1, next)))
-      suspendAuto()
-    },
-    [count, suspendAuto],
+    (next: number) => setActive(Math.max(0, Math.min(count - 1, next))),
+    [count],
   )
-
-  /*
-    AUTO-ADVANCE — MOBILE ONLY, ON AN INTERVAL THAT IS NEVER REBUILT.
-
-    ONE INTERVAL, CREATED ON MOUNT, EMPTY DEPENDENCY ARRAY. `active` was never
-    in the deps — it has always used a functional update — but `paused` WAS, and
-    that is its own stall: every pause and every resume tore the timer down and
-    built a new one, so the 2.5s countdown restarted from zero each time. Tap
-    two or three cards in a row and the deck can sit there looking broken for
-    far longer than the pause was meant to last.
-
-    So the conditions moved OUT of the dependency array and INTO the tick, read
-    through a ref that each render refreshes. A paused deck now SKIPS ticks
-    instead of destroying the clock, which means resuming costs at most one
-    tick rather than a fresh full interval — and there is no longer any value
-    whose change can restart, delay, or kill the loop.
-
-    The ref is written during render on purpose. It holds no state React needs
-    to track; it exists so the interval closure, created once, can still see
-    current values instead of the ones captured on mount.
-
-    Desktop never advances because `isMobile` is false, and the tick returns
-    before touching state.
-  */
-  const autoRef = useRef({ paused, reduced, isMobile, count })
-  autoRef.current = { paused, reduced, isMobile, count }
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const { paused: p, reduced: r, isMobile: m, count: n } = autoRef.current
-      if (!m || r || p || n < 2) return
-      setActive((prev) => (prev + 1) % n)
-    }, AUTO_ADVANCE_MS)
-
-    return () => window.clearInterval(id)
-  }, [])
 
   /*
     The FIRST positioning must not animate.
