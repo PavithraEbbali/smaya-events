@@ -67,13 +67,16 @@ const WHEEL_LOCK_MS = 500
  */
 const BURST: Transition = { type: 'spring', stiffness: 350, damping: 22 }
 
+/** How long each card holds before the deck moves on, on mobile. */
+const AUTO_ADVANCE_MS = 2500
 /**
- * How long a card sits still AFTER its burst has finished, before the deck
- * moves on. The total per slide is therefore burst + this, not a flat interval.
+ * How long a manual tap holds the carousel still before it resumes.
+ *
+ * 5s, down from 8. Long enough not to snatch a card away from someone who just
+ * tapped to look at it, short enough that a reader tapping through several
+ * cards never concludes the auto-advance is broken.
  */
-const HOLD_MS = 1000
-/** How long a manual tap holds the carousel still before it resumes. */
-const AUTO_RESUME_MS = 8000
+const AUTO_RESUME_MS = 5000
 
 /**
  * A centre-focused carousel: one prominent slide, its neighbours scaled back
@@ -128,52 +131,41 @@ export function FeatureCarousel({ slides, label, className }: Props) {
   )
 
   /*
-    AUTO-ADVANCE — MOBILE ONLY, AND CHAINED TO THE BURST RATHER THAN TO A CLOCK.
+    AUTO-ADVANCE — MOBILE ONLY, AND DELIBERATELY DUMB.
 
-    This was a flat 2s interval. The problem with a flat interval is that it
-    knows nothing about the animation: the burst takes whatever it takes, so the
-    time a card actually sits STILL varied with it, and the two could drift into
-    advancing mid-pop. The sequence is now explicit — the burst finishes, the
-    card holds for exactly HOLD_MS, then the deck moves. Total per slide is
-    burst + 1s rather than a fixed 2s that has to contain both.
+    This went through two more clever designs and both had a way to stall. A
+    flat interval knew nothing about the animation; chaining it to
+    `onAnimationComplete` was accurate but died whenever that callback never
+    fired. The version below cannot get stuck because there is nothing to get
+    stuck ON: one interval, four boolean conditions, and a cleanup.
 
-    TWO THINGS SCHEDULE IT, ON PURPOSE. `onAnimationComplete` is the accurate
-    trigger, but a chain with a single link stalls forever if that link never
-    fires — reduced motion renders no wrapper, a backgrounded tab may not
-    settle, and a paused deck stops mid-chain. So the effect below also
-    schedules on every `active` change, and both paths clear the pending timer
-    first, so the later scheduler simply wins. The sequence can be delayed but
-    it cannot die.
+    `document.hidden` IS GONE, and that removes the failure this was actually
+    reported for. It was there to avoid advancing for someone not looking, but
+    browsers already throttle background intervals to roughly once a minute, so
+    it bought almost nothing — and any environment reporting `hidden` while the
+    reader is in fact looking (an in-app browser, a webview, a preview pane)
+    silently froze the carousel with no way to tell from the outside.
+
+    `isMobile` comes from a media query rather than reading `innerWidth` inside
+    the tick, so the interval is torn down and rebuilt when the breakpoint is
+    actually crossed rather than re-deciding sixty times a second. It resolves
+    one render after mount, which is why the deck starts on its own the moment
+    that lands.
 
     It WRAPS where the arrows clamp: an auto-advance that stops dead on the last
     slide looks broken rather than finished. The arrows keep their end-stops, so
-    desktop behaviour is untouched.
+    desktop behaviour is untouched — and `isMobile` is false there, so this
+    effect never schedules anything at all.
   */
-  const holdTimer = useRef<number | undefined>(undefined)
-
-  const clearHold = useCallback(() => {
-    if (holdTimer.current) window.clearTimeout(holdTimer.current)
-    holdTimer.current = undefined
-  }, [])
-
-  const scheduleNext = useCallback(() => {
-    clearHold()
-    if (paused || reduced || count < 2) return
-    /* Read at schedule time, never from a dependency: a width in the deps would
-       rebuild this on every resize frame, and a captured value would freeze the
-       desktop decision made on first render. */
-    if (typeof window === 'undefined' || window.innerWidth >= 768) return
-    if (document.hidden) return
-
-    holdTimer.current = window.setTimeout(() => {
-      setActive((prev) => (prev + 1) % count)
-    }, HOLD_MS)
-  }, [paused, reduced, count, clearHold])
-
   useEffect(() => {
-    scheduleNext()
-    return clearHold
-  }, [active, scheduleNext, clearHold])
+    if (!isMobile || reduced || paused || count < 2) return
+
+    const id = window.setInterval(() => {
+      setActive((prev) => (prev + 1) % count)
+    }, AUTO_ADVANCE_MS)
+
+    return () => window.clearInterval(id)
+  }, [isMobile, reduced, paused, count])
 
   /*
     The FIRST positioning must not animate.
@@ -547,9 +539,6 @@ export function FeatureCarousel({ slides, label, className }: Props) {
                   initial={{ scale: 0.8, opacity: 0, y: 15 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={BURST}
-                  /* The hold starts when the pop finishes, not when it starts —
-                     this is the link that makes the sequence a sequence. */
-                  onAnimationComplete={scheduleNext}
                 >
                   {slide.render(isActive)}
                 </motion.div>
