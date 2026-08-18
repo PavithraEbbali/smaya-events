@@ -753,7 +753,24 @@ function StackCard({
       style={{ top, marginBottom: index === total - 1 ? 0 : 28 }}
     >
       <motion.article
-        style={reduced ? undefined : { scale }}
+        /*
+          `willChange` IS THE POINT HERE, not the scale.
+
+          This card carries a scroll-linked `scale` (1 -> 0.9) and sits inside a
+          `sticky` wrapper. Without its own compositor layer the browser
+          re-rasterises the card's TEXT on every scroll frame at a slightly
+          different sub-pixel offset. That reads as a shimmer along the headline
+          and body edges rather than as movement: two consecutive frames of the
+          recording measured 27 grey levels apart while being indistinguishable
+          to the eye, with the difference concentrated exactly on glyph edges.
+
+          Promoting the card means the type is rasterised once and the
+          compositor scales the finished layer, so the edges stop re-snapping.
+          Scoped to the six cards that genuinely animate, and skipped entirely
+          under reduced motion — the note on the bokeh layer elsewhere in this
+          file is right that promoting things which never move wastes memory.
+        */
+        style={reduced ? undefined : { scale, willChange: 'transform' }}
         className="relative isolate mx-auto w-full max-w-5xl overflow-hidden rounded-3xl shadow-[0_30px_80px_-30px_rgba(0,0,0,0.6)] ring-1 ring-white/10"
       >
         <div className="relative grid min-h-[26rem] grid-cols-1 lg:min-h-[28rem] lg:grid-cols-2">
