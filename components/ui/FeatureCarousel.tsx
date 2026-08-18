@@ -571,12 +571,21 @@ export function FeatureCarousel({ slides, label, className }: Props) {
         Sits directly above the controls rather than beside them: the row is
         two 44px arrows plus seven dots, which at 320px already needed its
         spacing tightened once to fit.
+
+        `neutral-500`, NOT the `neutral-400/70` this shipped with. Measured on
+        the white ground the section actually uses, that was 1.89:1 — for 12px
+        text needing 4.5:1, which is why it read as not being there at all.
+        neutral-500 is 4.74:1. The chevrons carry the rest of the meaning: the
+        word alone does not say WHICH WAY, and two arrows make it a direction
+        rather than a label.
       */}
       <p
         aria-hidden
-        className="relative z-10 mt-8 text-center text-xs font-medium lowercase tracking-widest text-neutral-400/70 md:hidden"
+        className="relative z-10 mt-8 flex items-center justify-center gap-2 text-xs font-medium lowercase tracking-widest text-neutral-500 md:hidden"
       >
+        <ChevronLeft size={14} strokeWidth={2.25} />
         swipe
+        <ChevronRight size={14} strokeWidth={2.25} />
       </p>
 
       {/* ------------------------------ Controls ------------------------------ */}
