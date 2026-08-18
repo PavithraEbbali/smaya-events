@@ -9,10 +9,15 @@ import {
   type ReactNode,
 } from 'react'
 import Image from 'next/image'
-import { AnimatePresence, motion, type PanInfo } from 'framer-motion'
+import {
+  AnimatePresence,
+  motion,
+  type PanInfo,
+  type Transition,
+} from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { usePrefersReducedMotion } from '@/lib/hooks'
+import { useMobileViewport, usePrefersReducedMotion } from '@/lib/hooks'
 import { cn } from '@/lib/utils'
 
 type Slide = {
@@ -53,6 +58,19 @@ const WINDOW = 1
 const WHEEL_LOCK_MS = 500
 
 /**
+ * The mobile "burst" entrance.
+ *
+ * Stiff and lightly damped on purpose — 400/25 overshoots slightly before it
+ * settles, and that overshoot is what reads as a pop rather than a fade.
+ */
+const BURST: Transition = { type: 'spring', stiffness: 400, damping: 25 }
+
+/** Dwell per card while auto-advancing on mobile. */
+const AUTO_ADVANCE_MS = 2000
+/** How long a manual tap holds the carousel still before it resumes. */
+const AUTO_RESUME_MS = 8000
+
+/**
  * A centre-focused carousel: one prominent slide, its neighbours scaled back
  * and dimmed behind it, driven by wheel, drag, buttons or keyboard.
  *
@@ -60,11 +78,6 @@ const WHEEL_LOCK_MS = 500
  * neighbour cannot push the page wide, and nothing else clips at all — see the
  * notes on the stage and the track.
  */
-/** Dwell per card while auto-advancing on mobile. */
-const AUTO_ADVANCE_MS = 2000
-/** How long a manual tap holds the carousel still before it resumes. */
-const AUTO_RESUME_MS = 8000
-
 export function FeatureCarousel({ slides, label, className }: Props) {
   const [active, setActive] = useState(0)
   const [metrics, setMetrics] = useState({ step: 0, height: 0 })
@@ -73,6 +86,7 @@ export function FeatureCarousel({ slides, label, className }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLDivElement | null)[]>([])
   const reduced = usePrefersReducedMotion()
+  const isMobile = useMobileViewport()
 
   const count = slides.length
 
@@ -480,7 +494,40 @@ export function FeatureCarousel({ slides, label, className }: Props) {
                   <span className="sr-only">Show {slide.label}</span>
                 </button>
               )}
-              {slide.render(isActive)}
+              {/*
+                THE BURST IS A KEYED WRAPPER, NOT A CHANGE TO THE SLIDE ITSELF.
+
+                The outer motion.div owns `x`, `scale`, `opacity` and `blur` for
+                every slide at once — that is the horizontal glide, and touching
+                it would change how the neighbours travel on every viewport.
+                This wrapper sits inside it and only ever exists for the ACTIVE
+                slide on a narrow screen, so the two compose: the deck still
+                slides, and the card that lands pops as it arrives.
+
+                `key={active}` is what makes it fire. A wrapper that merely
+                re-renders would animate nothing; remounting on every index
+                change is what replays `initial -> animate`, which is precisely
+                the "whenever the slide index changes" trigger asked for — and
+                it works identically whether the change came from an arrow, a
+                dot, a drag or the 2s timer, because all four route through the
+                same `active`.
+
+                Reduced motion falls through to the plain render: a spring that
+                overshoots is the definition of the movement that setting exists
+                to suppress.
+              */}
+              {isActive && isMobile && !reduced ? (
+                <motion.div
+                  key={active}
+                  initial={{ scale: 0.85, opacity: 0, y: 10 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  transition={BURST}
+                >
+                  {slide.render(isActive)}
+                </motion.div>
+              ) : (
+                slide.render(isActive)
+              )}
             </motion.div>
           )
         })}
