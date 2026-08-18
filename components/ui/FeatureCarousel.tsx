@@ -131,41 +131,40 @@ export function FeatureCarousel({ slides, label, className }: Props) {
   )
 
   /*
-    AUTO-ADVANCE — MOBILE ONLY, AND DELIBERATELY DUMB.
+    AUTO-ADVANCE — MOBILE ONLY, ON AN INTERVAL THAT IS NEVER REBUILT.
 
-    This went through two more clever designs and both had a way to stall. A
-    flat interval knew nothing about the animation; chaining it to
-    `onAnimationComplete` was accurate but died whenever that callback never
-    fired. The version below cannot get stuck because there is nothing to get
-    stuck ON: one interval, four boolean conditions, and a cleanup.
+    ONE INTERVAL, CREATED ON MOUNT, EMPTY DEPENDENCY ARRAY. `active` was never
+    in the deps — it has always used a functional update — but `paused` WAS, and
+    that is its own stall: every pause and every resume tore the timer down and
+    built a new one, so the 2.5s countdown restarted from zero each time. Tap
+    two or three cards in a row and the deck can sit there looking broken for
+    far longer than the pause was meant to last.
 
-    `document.hidden` IS GONE, and that removes the failure this was actually
-    reported for. It was there to avoid advancing for someone not looking, but
-    browsers already throttle background intervals to roughly once a minute, so
-    it bought almost nothing — and any environment reporting `hidden` while the
-    reader is in fact looking (an in-app browser, a webview, a preview pane)
-    silently froze the carousel with no way to tell from the outside.
+    So the conditions moved OUT of the dependency array and INTO the tick, read
+    through a ref that each render refreshes. A paused deck now SKIPS ticks
+    instead of destroying the clock, which means resuming costs at most one
+    tick rather than a fresh full interval — and there is no longer any value
+    whose change can restart, delay, or kill the loop.
 
-    `isMobile` comes from a media query rather than reading `innerWidth` inside
-    the tick, so the interval is torn down and rebuilt when the breakpoint is
-    actually crossed rather than re-deciding sixty times a second. It resolves
-    one render after mount, which is why the deck starts on its own the moment
-    that lands.
+    The ref is written during render on purpose. It holds no state React needs
+    to track; it exists so the interval closure, created once, can still see
+    current values instead of the ones captured on mount.
 
-    It WRAPS where the arrows clamp: an auto-advance that stops dead on the last
-    slide looks broken rather than finished. The arrows keep their end-stops, so
-    desktop behaviour is untouched — and `isMobile` is false there, so this
-    effect never schedules anything at all.
+    Desktop never advances because `isMobile` is false, and the tick returns
+    before touching state.
   */
-  useEffect(() => {
-    if (!isMobile || reduced || paused || count < 2) return
+  const autoRef = useRef({ paused, reduced, isMobile, count })
+  autoRef.current = { paused, reduced, isMobile, count }
 
+  useEffect(() => {
     const id = window.setInterval(() => {
-      setActive((prev) => (prev + 1) % count)
+      const { paused: p, reduced: r, isMobile: m, count: n } = autoRef.current
+      if (!m || r || p || n < 2) return
+      setActive((prev) => (prev + 1) % n)
     }, AUTO_ADVANCE_MS)
 
     return () => window.clearInterval(id)
-  }, [isMobile, reduced, paused, count])
+  }, [])
 
   /*
     The FIRST positioning must not animate.
