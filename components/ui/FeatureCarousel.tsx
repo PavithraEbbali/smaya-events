@@ -240,6 +240,34 @@ export function FeatureCarousel({ slides, label, className }: Props) {
     }, 0)
   }
 
+  /*
+    MOBILE SWIPE HAS ITS OWN THRESHOLD, AND THAT IS NOT DUPLICATION.
+
+    `handleDragEnd` above derives its threshold from `metrics.step`, which is
+    measured off the DESKTOP track's slides — and that track is `display: none`
+    below `md`, so `offsetWidth` is 0 and the threshold collapses to 0. Reusing
+    it would mean ANY horizontal offset, however small, flips the card: a
+    hair-trigger that reads as the deck sliding around under your thumb rather
+    than responding to a swipe.
+
+    So the distance is measured from the mobile container itself, with a 48px
+    floor so a narrow viewport can never make it twitchy again.
+  */
+  const mobileRef = useRef<HTMLDivElement>(null)
+
+  const handleMobileSwipe = (_: unknown, info: PanInfo) => {
+    const width = mobileRef.current?.offsetWidth ?? 0
+    const threshold = Math.max(48, width * 0.25)
+    const { offset, velocity } = info
+
+    if (offset.x < -threshold || velocity.x < -450) go(active + 1)
+    else if (offset.x > threshold || velocity.x > 450) go(active - 1)
+
+    window.setTimeout(() => {
+      draggedRef.current = false
+    }, 0)
+  }
+
   const swallowClickAfterDrag = (e: React.MouseEvent) => {
     if (!draggedRef.current) return
     e.stopPropagation()
@@ -362,21 +390,41 @@ export function FeatureCarousel({ slides, label, className }: Props) {
         it routes through the same `go`, so it pauses the auto-advance exactly
         as the arrows do.
       */}
-      <div className="relative z-10 mx-auto w-full md:hidden">
-        {/*
-          NO `drag` HERE, AND THAT IS THE LAST SOURCE OF SIDEWAYS MOTION.
+      {/*
+        SWIPE IS BACK, BUT NOT THE SLIDING.
 
-          Removing the track was not sufficient. This wrapper still carried
-          `drag="x"` with `dragElastic: 0.16`, and framer's drag writes an `x`
-          TRANSFORM — so any touch with a horizontal component, including a
-          slightly diagonal scroll, slid the card sideways. A frame pulled from
-          the recording shows it plainly: the outgoing card's edge still at the
-          left while the incoming one sits offset to the right.
+        This wrapper previously carried `drag="x"` with `dragElastic: 0.16` and
+        no direction lock, and a frame pulled from a recording showed the cost:
+        the outgoing card's edge still at the left while the incoming one sat
+        offset right. Any touch with a horizontal component — a slightly
+        diagonal scroll included — dragged the card.
 
-          With drag gone the card cannot translate at all. The dots and arrows
-          remain, so every slide is still reachable by hand, and they route
-          through the same `go` that suspends the auto-advance.
-        */}
+        Two properties are what make the gesture safe rather than the absence of
+        the gesture:
+
+        `dragDirectionLock` commits the pointer to ONE axis at the start of the
+        gesture, so a vertical scroll can never become a horizontal drag. That
+        alone removes the accidental case.
+
+        `dragElastic: 0.05` rather than 0.16 keeps the visible travel to a hint
+        — enough that the card acknowledges the thumb, far below what reads as
+        the deck sliding. `dragConstraints` of 0/0 then springs it back, so the
+        card always returns to centre and the BURST remains the only real
+        movement between slides.
+      */}
+      <motion.div
+        ref={mobileRef}
+        className="relative z-10 mx-auto w-full md:hidden"
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.05}
+        onDragStart={() => {
+          draggedRef.current = true
+        }}
+        onDragEnd={handleMobileSwipe}
+        onClickCapture={swallowClickAfterDrag}
+      >
         <motion.div
           key={active}
           initial={reduced ? false : { scale: 0.7, opacity: 0, y: 15 }}
@@ -387,7 +435,7 @@ export function FeatureCarousel({ slides, label, className }: Props) {
         >
           {slides[active].render(true)}
         </motion.div>
-      </div>
+      </motion.div>
 
       {/*
         THE TRACK IS NOT CLIPPED, AND THAT IS DELIBERATE.
@@ -512,8 +560,27 @@ export function FeatureCarousel({ slides, label, className }: Props) {
         })}
       </motion.div>
 
+      {/*
+        SWIPE HINT — mobile only, and `aria-hidden`.
+
+        It names an interaction that exists solely for touch, so it would be
+        noise to a screen reader and a lie on a desktop pointer. The dots
+        beside it are real buttons and already announce position, so nothing is
+        lost by hiding this from assistive tech.
+
+        Sits directly above the controls rather than beside them: the row is
+        two 44px arrows plus seven dots, which at 320px already needed its
+        spacing tightened once to fit.
+      */}
+      <p
+        aria-hidden
+        className="relative z-10 mt-8 text-center text-xs font-medium lowercase tracking-widest text-neutral-400/70 md:hidden"
+      >
+        swipe
+      </p>
+
       {/* ------------------------------ Controls ------------------------------ */}
-      <div className="relative z-10 mt-10 flex items-center justify-center gap-6">
+      <div className="relative z-10 mt-3 flex items-center justify-center gap-6 md:mt-10">
         <CarouselButton
           direction="prev"
           onClick={() => go(active - 1)}
