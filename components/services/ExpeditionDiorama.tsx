@@ -14,6 +14,7 @@ import { ArrowUpRight, Bike, Compass, Route, Sun, Tent, type LucideIcon } from '
 
 import type { VerticalService } from '@/data/verticals'
 import { usePointerFine, usePrefersReducedMotion } from '@/lib/hooks'
+import { cn } from '@/lib/utils'
 
 /* -------------------------------------------------------------------------- *
  * Diorama data
@@ -395,7 +396,10 @@ function DioramaFrame({
           style={tiltable ? { rotateX, rotateY } : undefined}
           animate={{ opacity: reached ? 1 : 0.86, scale: reduced ? 1 : reached ? 1 : 0.987 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="group/frame relative aspect-[16/10] w-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07080B] shadow-2xl sm:aspect-[2/1]"
+          className={cn(
+            "group/frame relative aspect-[16/10] w-full overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#07080B] shadow-2xl transition-[min-height] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:aspect-[2/1]",
+            open && "min-h-[28rem] sm:min-h-0",
+          )}
         >
           {/* ---------------------------- Far layer --------------------------- */}
           <motion.div
@@ -453,7 +457,7 @@ function DioramaFrame({
 
           {/* --------------------------- Near layer --------------------------- */}
           <motion.div
-            className="absolute inset-0 flex flex-col justify-between p-6 sm:p-9 lg:p-11"
+            className="absolute inset-0 flex flex-col justify-between p-5 sm:p-9 lg:p-11"
             style={tiltable ? { x: nearX, y: nearY } : undefined}
           >
             {/* Top rail. */}
@@ -515,7 +519,7 @@ function DioramaFrame({
                 }
                 whileTap={{ scale: 0.97 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 26 }}
-                className="mt-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.22em] backdrop-blur-md"
+                className="mt-4 inline-flex items-center gap-2 rounded-full border px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.22em] backdrop-blur-md sm:mt-6"
                 style={{
                   borderColor: `${dio.accent}4d`,
                   color: dio.accent,
@@ -549,7 +553,7 @@ function DioramaFrame({
                 }
                 className="absolute inset-y-0 right-0 z-20 w-full max-w-md border-l border-white/15 bg-black/80 backdrop-blur-md"
               >
-                <div className="flex h-full flex-col gap-5 overflow-y-auto p-6 sm:p-7">
+                <div className="flex h-full flex-col gap-3 overflow-y-auto p-4 sm:gap-5 sm:p-7">
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-2.5">
                       <span
@@ -574,7 +578,7 @@ function DioramaFrame({
                   </div>
 
                   {/* Metric grid. */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                     {dio.telemetry.map((m, i) => (
                       <motion.div
                         key={m.label}
@@ -582,13 +586,13 @@ function DioramaFrame({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: reduced ? 0 : 0.1 + i * 0.06, duration: 0.4 }}
                         whileHover={reduced ? undefined : { scale: 1.01 }}
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3"
+                        className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 sm:rounded-xl sm:px-3.5 sm:py-3"
                       >
                         <span className="block font-mono text-[9px] uppercase tracking-[0.24em] text-white/35">
                           {m.label}
                         </span>
-                        <span className="mt-1.5 flex items-baseline gap-1">
-                          <span className="font-serif text-[1.5rem] font-black leading-none tracking-[-0.02em] text-white">
+                        <span className="mt-1 flex items-baseline gap-1 sm:mt-1.5">
+                          <span className="font-serif text-[1.125rem] font-black leading-none tracking-[-0.02em] text-white sm:text-[1.5rem]">
                             {m.value}
                           </span>
                           {m.unit && (
@@ -602,11 +606,11 @@ function DioramaFrame({
                   </div>
 
                   {/* Multi-tier itinerary. */}
-                  <div className="border-t border-white/10 pt-4">
+                  <div className="border-t border-white/10 pt-3 sm:pt-4">
                     <span className="font-mono text-[10px] uppercase tracking-[0.26em] text-white/35">
                       Multi-tier itinerary
                     </span>
-                    <ul className="mt-3 flex flex-col gap-1">
+                    <ul className="mt-2 flex flex-col gap-0.5 sm:mt-3 sm:gap-1">
                       {dio.tiers.map((t, i) => (
                         <motion.li
                           key={t.tier}
@@ -614,7 +618,7 @@ function DioramaFrame({
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: reduced ? 0 : 0.26 + i * 0.07, duration: 0.4 }}
                           whileHover={reduced ? undefined : { scale: 1.01, x: 3 }}
-                          className="group/tier flex origin-left cursor-default items-baseline gap-3.5 rounded-lg px-2 py-2 transition-colors duration-300 hover:bg-white/[0.06]"
+                          className="group/tier flex origin-left cursor-default items-baseline gap-2.5 rounded-lg px-1.5 py-1 transition-colors duration-300 hover:bg-white/[0.06] sm:gap-3.5 sm:px-2 sm:py-2"
                         >
                           <span
                             className="w-5 shrink-0 font-mono text-[11px] font-bold tracking-[0.08em]"
@@ -623,10 +627,10 @@ function DioramaFrame({
                             {t.tier}
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-[0.8125rem] font-semibold leading-snug text-white/85 transition-colors duration-300 group-hover/tier:text-white">
+                            <span className="block text-[0.75rem] font-semibold leading-snug text-white/85 transition-colors duration-300 group-hover/tier:text-white sm:text-[0.8125rem]">
                               {t.label}
                             </span>
-                            <span className="mt-0.5 block font-mono text-[10.5px] leading-relaxed text-white/40">
+                            <span className="block font-mono text-[10px] leading-snug text-white/40 sm:mt-0.5 sm:text-[10.5px] sm:leading-relaxed">
                               {t.detail}
                             </span>
                           </span>
