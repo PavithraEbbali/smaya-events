@@ -60,12 +60,46 @@ const WHEEL_LOCK_MS = 500
 /**
  * The mobile "burst" entrance.
  *
- * Stiff and lightly damped on purpose — 350/22 overshoots before it settles,
- * and that overshoot is what reads as a pop rather than a fade. Softer damping
- * than the 400/25 this started at, so the bounce is visible rather than merely
- * fast.
+ * THE `delay` IS THE FIX, not the spring values.
+ *
+ * The burst was firing correctly all along — the wrapper remounts on every
+ * index change and carries the right `initial`. It was invisible because the
+ * SLIDE underneath animates at the same instant: `scale 0.84 -> 1`,
+ * `opacity 0.5 -> 1` and `blur 1.5px -> 0`, on a SLOWER spring. Two nested
+ * scale-and-fades starting together do not read as a pop; they average into one
+ * smooth glide, which is exactly what "shifts cleanly but never bursts"
+ * describes.
+ *
+ * 0.12s is enough for the slide to have arrived (see SLIDE_SPRING_MOBILE below,
+ * which settles in roughly 150ms) so the pop lands as its own beat afterwards
+ * rather than fighting it.
+ *
+ * Damping 18 rather than 22: with the two animations no longer overlapping, the
+ * overshoot has to carry the whole impression of a pop on its own.
  */
-const BURST: Transition = { type: 'spring', stiffness: 350, damping: 22 }
+const BURST: Transition = {
+  type: 'spring',
+  stiffness: 350,
+  damping: 18,
+  delay: 0.12,
+}
+
+/** The deck's own glide between slides. */
+const SLIDE_SPRING: Transition = { type: 'spring', stiffness: 260, damping: 32 }
+
+/**
+ * The same glide on mobile, stiff enough to be over before the burst starts.
+ *
+ * Desktop keeps the softer 260/32: there the neighbours are genuinely visible
+ * and the slower travel is the effect. On a phone the neighbours are barely
+ * on screen, so the glide is only a means of arrival — and it has to get out of
+ * the burst's way.
+ */
+const SLIDE_SPRING_MOBILE: Transition = {
+  type: 'spring',
+  stiffness: 520,
+  damping: 40,
+}
 
 /** How long each card holds before the deck moves on, on mobile. */
 const AUTO_ADVANCE_MS = 2500
@@ -487,7 +521,9 @@ export function FeatureCarousel({ slides, label, className }: Props) {
               transition={
                 reduced || !settled.current
                   ? { duration: 0 }
-                  : { type: 'spring', stiffness: 260, damping: 32 }
+                  : isMobile
+                    ? SLIDE_SPRING_MOBILE
+                    : SLIDE_SPRING
               }
               aria-hidden={!isActive}
               /* Removes the whole subtree from the tab order and from hit
@@ -535,7 +571,7 @@ export function FeatureCarousel({ slides, label, className }: Props) {
               {isActive && isMobile && !reduced ? (
                 <motion.div
                   key={active}
-                  initial={{ scale: 0.8, opacity: 0, y: 15 }}
+                  initial={{ scale: 0.78, opacity: 0, y: 18 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={BURST}
                 >
