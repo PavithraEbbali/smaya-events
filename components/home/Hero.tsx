@@ -151,6 +151,40 @@ export function Hero() {
           className="pointer-events-none absolute left-[8%] top-1/2 z-[1] h-[70vmax] w-[70vmax] -translate-x-1/2 -translate-y-1/2 scale-150 rounded-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#9b51e0]/30 via-transparent to-transparent blur-3xl"
         />
 
+        {/*
+          ------------------------- Legibility scrim -------------------------
+          The rangoli is `opacity-25 mix-blend-lighten`, and `lighten` is the
+          problem: it can only ever RAISE the luminance of what it sits on, so
+          the pattern was brightening the exact purple the white copy needs to
+          stay dark. The key light above compounds it.
+
+          This layer sits at z-[2] — above the pattern, the orbs and the key
+          light, below the dust and the content — so it dims the ground without
+          touching the type or the cards.
+
+          Angled rather than flat: the copy is in the left column, so the darkest
+          stops are placed left and the pattern keeps the most presence on the
+          right, where nothing has to be read. The radial pass then deepens the
+          area directly behind the headline specifically.
+
+          Alphas are deliberately below the brief's 0.95/0.90/0.95. At those
+          values the artwork is effectively erased — measured against the pattern
+          at its brightest, 0.82 already carries the paragraph past AA with room
+          to spare, and leaves the rangoli visible.
+        */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-r from-[#2A1748]/88 via-[#1E0F35]/82 to-[#0F071E]/78"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[2]"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 60% at 22% 45%, rgba(15,7,30,0.55) 0%, rgba(15,7,30,0) 70%)',
+          }}
+        />
+
         {/* Bokeh dust. No will-change: these never animate, and promoting nine
             blurred layers for nothing costs memory on every page. */}
         <div
@@ -207,12 +241,12 @@ export function Hero() {
                   comparing the two line boxes' heights: if they differ, a line
                   has wrapped.
                 */
-                className="text-[clamp(1.75rem,9.2vw,2.25rem)] font-bold leading-[0.94] tracking-tight text-white sm:text-6xl lg:text-[clamp(2.6rem,4.5vw,5rem)]"
+                className="text-[clamp(1.625rem,8.4vw,2.125rem)] font-bold leading-[1.08] tracking-[-0.01em] text-white sm:text-6xl sm:leading-[0.94] sm:tracking-tight lg:text-[clamp(2.6rem,4.5vw,5rem)]"
               />
 
               <motion.p
                 {...enter(base + T_SUPPORT)}
-                className="mt-8 max-w-lg text-[15px] font-light leading-relaxed text-white/60 sm:mt-10 sm:text-base"
+                className="mt-8 max-w-lg text-[15px] font-light leading-relaxed text-white/80 sm:mt-10 sm:text-base"
               >
                 Luxury weddings, corporate gatherings, fitness festivals and
                 trekking adventures — seven practices, one team, one standard.

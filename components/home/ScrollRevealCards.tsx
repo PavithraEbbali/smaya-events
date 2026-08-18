@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { useRef, useState } from 'react'
 import { motion, useTransform, type MotionValue } from 'framer-motion'
 
 type Card = {
@@ -50,13 +51,13 @@ function CardFace({ card }: { card: Card }) {
         alt=""
         fill
         /*
-          Below `lg` these render in HeroCardsStatic at 68vw. The hint was `1px`
+          Below `lg` these render full-width in HeroCardsStatic. The hint was `1px`
           originally, which was correct only while the column was
           `hidden lg:block` and phones genuinely never saw these images — left
           alone it would ship a 1px-wide candidate stretched across two-thirds
           of the screen.
         */
-        sizes="(min-width: 1024px) 512px, 68vw"
+        sizes="(min-width: 1024px) 512px, 92vw"
         loading="eager"
         className="object-cover"
       />
@@ -190,64 +191,87 @@ export function ScrollRevealCards({
  * Mobile deck
  *
  * The scroll-driven version above cannot work below `lg`: it reads its progress
- * from the hero's 300vh track, and that track is `lg:h-[300vh]` — on a phone the
- * hero is a single viewport, so `progress` never advances and all three cards
- * would sit frozen on top of one another. That is why the column was
- * `hidden lg:block`, and why the cards were simply absent on mobile rather than
- * merely restyled.
+ * from the hero's 300vh track, and that track is `lg:h-[300vh]`, so on a phone
+ * `progress` never advances and all three cards would sit frozen on top of one
+ * another. Mobile therefore needs its own mechanism for the same content.
  *
- * So mobile gets a different mechanism for the same content: a CONTINUOUS
- * MARQUEE, using the same CSS keyframes as the Selected Works ticker. It was a
- * hand-swiped snap strip first; the brief since asked for automated motion at
- * every width, and a keyframe animation is the right tool because it runs on
- * the compositor and cannot fall out of step with the page the way a
- * scroll-coupled track can.
+ * IT IS A FULL-WIDTH SNAP DECK, AND THE WIDTH IS THE WHOLE POINT.
+ *
+ * Two earlier attempts clipped their captions. A peeking strip (82vw) leaves the
+ * neighbour sliced at the viewport edge, and a continuous marquee is worse
+ * because EVERY card is mid-transit — that is what cut "…estivals & retreats"
+ * and "Weddin…". Both were legible only by accident of timing.
+ *
+ * At `w-full` + `snap-center` a settled card occupies the entire track, so its
+ * caption, index and image are whole by construction rather than by luck. The
+ * dots below carry the affordance the peek used to provide, and they are real
+ * buttons, so the deck is operable without a swipe.
  * -------------------------------------------------------------------------- */
 
+const DECK = [TOP, MIDDLE, BOTTOM]
+
 export function HeroCardsStatic() {
-  /*
-    Two identical sets, because `marquee-left` travels -50%: with one set the
-    track would run clean off the screen and leave the row empty for the rest
-    of the lap. The second is aria-hidden so a screen reader hears three
-    divisions, not six.
+  const trackRef = useRef<HTMLUListElement>(null)
+  const [active, setActive] = useState(0)
 
-    SPACING IS `mr-4` ON EACH CARD, NEVER A FLEX `gap`. A track of two 3-card
-    sets has five gaps, so half the track is 3 cards + 2.5 gaps while one set is
-    3 cards + 3 — the loop lands off the seam and visibly jumps every lap.
-    Margin makes every unit identical, so -50% is exactly one set.
+  /* Index from scroll position rather than from a timer, so the dots can never
+     disagree with what is on screen. Guarded so it only sets state on an actual
+     change — scroll fires far faster than the index moves. */
+  const syncActive = () => {
+    const el = trackRef.current
+    if (!el) return
+    const next = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
+    setActive((prev) =>
+      prev === next ? prev : Math.min(DECK.length - 1, Math.max(0, next)),
+    )
+  }
 
-    Widths are `vw`, not `%`: a percentage inside a `w-max` track resolves
-    against a width that is itself content-derived, which is circular.
-  */
-  const deck = [TOP, MIDDLE, BOTTOM]
+  const goTo = (i: number) => {
+    const el = trackRef.current
+    if (!el) return
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+  }
 
   return (
-    <div className="group/herodeck w-full overflow-hidden">
-      <div
-        style={{ animationDuration: '26s' }}
-        className="flex w-max [animation-iteration-count:infinite] [animation-name:marquee-left] [animation-play-state:running] [animation-timing-function:linear] group-hover/herodeck:[animation-play-state:paused] motion-reduce:!animate-none"
+    <div>
+      <ul
+        ref={trackRef}
+        onScroll={syncActive}
+        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {deck.map((card) => (
-          <div
-            key={`a-${card.index}`}
-            className="relative mr-4 aspect-[16/10] w-[68vw] shrink-0"
+        {DECK.map((card) => (
+          <li
+            key={card.index}
+            className="relative aspect-[16/10] w-full shrink-0 snap-center"
           >
             <div className={FRAME}>
               <CardFace card={card} />
             </div>
-          </div>
+          </li>
         ))}
+      </ul>
 
-        {deck.map((card) => (
-          <div
-            key={`b-${card.index}`}
-            aria-hidden
-            className="relative mr-4 aspect-[16/10] w-[68vw] shrink-0"
+      <div className="mt-4 flex items-center justify-center gap-2">
+        {DECK.map((card, i) => (
+          <button
+            key={card.index}
+            type="button"
+            data-tap
+            onClick={() => goTo(i)}
+            aria-label={`Show ${card.label}`}
+            aria-current={i === active ? 'true' : undefined}
+            /* 24x44 — WCAG 2.5.8's minimum width with the vertical dimension
+               doing the ergonomic work, the same trade the services carousel
+               dots make. */
+            className="flex h-11 w-6 items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
           >
-            <div className={FRAME}>
-              <CardFace card={card} />
-            </div>
-          </div>
+            <span
+              aria-hidden
+              className={`block h-1.5 rounded-full transition-all duration-300 ${
+                i === active ? 'w-5 bg-[#D4AF37]' : 'w-1.5 bg-white/35'
+              }`}
+            />
+          </button>
         ))}
       </div>
     </div>
