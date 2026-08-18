@@ -60,46 +60,25 @@ const WHEEL_LOCK_MS = 500
 /**
  * The mobile "burst" entrance.
  *
- * THE `delay` IS THE FIX, not the spring values.
+ * It no longer competes with anything, which is why it has no delay.
  *
- * The burst was firing correctly all along — the wrapper remounts on every
- * index change and carries the right `initial`. It was invisible because the
- * SLIDE underneath animates at the same instant: `scale 0.84 -> 1`,
- * `opacity 0.5 -> 1` and `blur 1.5px -> 0`, on a SLOWER spring. Two nested
- * scale-and-fades starting together do not read as a pop; they average into one
- * smooth glide, which is exactly what "shifts cleanly but never bursts"
- * describes.
+ * The burst always fired — the wrapper remounted correctly on every index
+ * change. It was invisible because the horizontal track underneath animated at
+ * the same instant: `x`, `scale 0.84 -> 1`, `opacity 0.5 -> 1`, `blur -> 0`.
+ * Two nested scale-and-fades running together average into a glide instead of
+ * compounding into a pop. Delaying the burst past the glide helped and still
+ * was not the effect asked for, because a horizontal slider that also pops is
+ * read by the eye as a slider.
  *
- * 0.12s is enough for the slide to have arrived (see SLIDE_SPRING_MOBILE below,
- * which settles in roughly 150ms) so the pop lands as its own beat afterwards
- * rather than fighting it.
- *
- * Damping 18 rather than 22: with the two animations no longer overlapping, the
- * overshoot has to carry the whole impression of a pop on its own.
+ * Below `md` the track is gone entirely (see the stage) — one card, no
+ * neighbours, no travel. This spring is then the ONLY thing moving, so 400/18
+ * lands as the pop it was always meant to be.
  */
-const BURST: Transition = {
-  type: 'spring',
-  stiffness: 350,
-  damping: 18,
-  delay: 0.12,
-}
+const BURST: Transition = { type: 'spring', stiffness: 400, damping: 18 }
 
 /** The deck's own glide between slides. */
 const SLIDE_SPRING: Transition = { type: 'spring', stiffness: 260, damping: 32 }
 
-/**
- * The same glide on mobile, stiff enough to be over before the burst starts.
- *
- * Desktop keeps the softer 260/32: there the neighbours are genuinely visible
- * and the slower travel is the effect. On a phone the neighbours are barely
- * on screen, so the glide is only a means of arrival — and it has to get out of
- * the burst's way.
- */
-const SLIDE_SPRING_MOBILE: Transition = {
-  type: 'spring',
-  stiffness: 520,
-  damping: 40,
-}
 
 /** How long each card holds before the deck moves on, on mobile. */
 const AUTO_ADVANCE_MS = 2500
@@ -426,6 +405,61 @@ export function FeatureCarousel({ slides, label, className }: Props) {
       </div>
 
       {/*
+        ------------------------ MOBILE: ONE CARD ------------------------
+
+        Below `md` there is NO TRACK. Not a narrower one, not a slower one —
+        none. Only the active card is mounted, in normal flow, and it is
+        replaced outright when the index changes.
+
+        This is the fix for "it slides but never bursts". A horizontal track
+        moves `x` on the parent while the burst scales the child, and the eye
+        resolves two simultaneous transforms as one glide; sequencing them
+        helped but a slider that also pops still reads as a slider. With the
+        travel removed the spring is the only thing moving, so the pop is the
+        whole event.
+
+        NO `AnimatePresence`, AND THAT IS A CORRECTNESS CHOICE.
+
+        The obvious build is `<AnimatePresence mode="wait">`, so the outgoing
+        card dissolves before the next arrives. It was written that way first
+        and it desynced: `mode="wait"` holds the incoming child until the
+        outgoing EXIT ANIMATION COMPLETES, so anything that interrupts that exit
+        strands the display on an old card while state has moved on. Measured
+        here — state sat at index 3 while the card still read "1 of 7".
+
+        A bare keyed element cannot do that. React swaps the node the instant
+        `key` changes and the new one bursts on mount; there is no exit to wait
+        on and no way for what is rendered to disagree with `active`. The brief
+        allows "dissolves OR snaps"; this snaps, and it cannot stall.
+
+        Drag stays: swiping is still the natural way to move a single card, and
+        it routes through the same `go`, so it pauses the auto-advance exactly
+        as the arrows do.
+      */}
+      <motion.div
+        className="relative z-10 mx-auto w-full md:hidden"
+        drag={reduced ? false : 'x'}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.16}
+        onDragStart={() => {
+          draggedRef.current = true
+        }}
+        onDragEnd={handleDragEnd}
+        onClickCapture={swallowClickAfterDrag}
+      >
+        <motion.div
+          key={active}
+          initial={reduced ? false : { scale: 0.75, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={reduced ? { duration: 0 } : BURST}
+          aria-roledescription="slide"
+          aria-label={`${slides[active].label} — ${active + 1} of ${count}`}
+        >
+          {slides[active].render(true)}
+        </motion.div>
+      </motion.div>
+
+      {/*
         THE TRACK IS NOT CLIPPED, AND THAT IS DELIBERATE.
 
         `overflow-visible` is stated rather than left to the default so nobody
@@ -434,7 +468,7 @@ export function FeatureCarousel({ slides, label, className }: Props) {
       */}
       <motion.div
         ref={trackRef}
-        className="relative z-10 mx-auto w-full overflow-visible"
+        className="relative z-10 mx-auto hidden w-full overflow-visible md:block"
         style={{ height: metrics.height || undefined }}
         animate={{ height: metrics.height || undefined }}
         transition={{ type: 'spring', stiffness: 200, damping: 30 }}
@@ -519,11 +553,7 @@ export function FeatureCarousel({ slides, label, className }: Props) {
                 isActive && !reduced ? { scale: 1.02, y: -5 } : undefined
               }
               transition={
-                reduced || !settled.current
-                  ? { duration: 0 }
-                  : isMobile
-                    ? SLIDE_SPRING_MOBILE
-                    : SLIDE_SPRING
+                reduced || !settled.current ? { duration: 0 } : SLIDE_SPRING
               }
               aria-hidden={!isActive}
               /* Removes the whole subtree from the tab order and from hit
@@ -546,40 +576,7 @@ export function FeatureCarousel({ slides, label, className }: Props) {
                   <span className="sr-only">Show {slide.label}</span>
                 </button>
               )}
-              {/*
-                THE BURST IS A KEYED WRAPPER, NOT A CHANGE TO THE SLIDE ITSELF.
-
-                The outer motion.div owns `x`, `scale`, `opacity` and `blur` for
-                every slide at once — that is the horizontal glide, and touching
-                it would change how the neighbours travel on every viewport.
-                This wrapper sits inside it and only ever exists for the ACTIVE
-                slide on a narrow screen, so the two compose: the deck still
-                slides, and the card that lands pops as it arrives.
-
-                `key={active}` is what makes it fire. A wrapper that merely
-                re-renders would animate nothing; remounting on every index
-                change is what replays `initial -> animate`, which is precisely
-                the "whenever the slide index changes" trigger asked for — and
-                it works identically whether the change came from an arrow, a
-                dot, a drag or the 2s timer, because all four route through the
-                same `active`.
-
-                Reduced motion falls through to the plain render: a spring that
-                overshoots is the definition of the movement that setting exists
-                to suppress.
-              */}
-              {isActive && isMobile && !reduced ? (
-                <motion.div
-                  key={active}
-                  initial={{ scale: 0.78, opacity: 0, y: 18 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  transition={BURST}
-                >
-                  {slide.render(isActive)}
-                </motion.div>
-              ) : (
-                slide.render(isActive)
-              )}
+              {slide.render(isActive)}
             </motion.div>
           )
         })}
