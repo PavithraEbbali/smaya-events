@@ -139,6 +139,7 @@ export function AsymmetricCarousel({ categories, verticals }: Props) {
     scroll every frame, so a native smooth scroll gets overwritten mid-flight.
   */
   const track = useRef<HTMLDivElement>(null)
+  const card = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({
     target: track,
     offset: ['start start', 'end end'],
@@ -197,6 +198,48 @@ export function AsymmetricCarousel({ categories, verticals }: Props) {
       if (!pinned()) {
         setDir(index > active ? 1 : -1)
         setActive(index)
+
+        /*
+          MOBILE ONLY: BRING THE NEW CARD'S IMAGE BACK INTO VIEW.
+
+          Below `lg` the divisions stack, so the copy sits under a 280px image.
+          A reader who scrolls down to finish the description and then taps the
+          next arrow keeps their scroll position — which is now level with the
+          NEW card's copy, with its image off the top of the screen. The card
+          changed and nothing appeared to happen.
+
+          THE GUARD IS THE IMPORTANT PART. This only pulls the page UP, never
+          down: if the card's top is already visible the reader is looking at
+          the right thing and moving them would be the rude version of this
+          fix. `rect.top < NAV_H` is exactly the condition "the image is behind
+          the header or above it".
+
+          Through Lenis rather than `scrollIntoView`, which the brief suggested:
+          Lenis drives scroll from its own rAF loop and reasserts its target
+          every frame, so a native smooth scroll is overwritten mid-flight. See
+          lib/lenis-instance.ts. Native is the fallback for when Lenis is not
+          running, which is the reduced-motion case.
+
+          `window.innerWidth < 768` rather than the `pinned()` 1024 breakpoint:
+          between 768 and 1023 the layout is already two-column enough that the
+          image never leaves the viewport, so a tablet has nothing to correct.
+        */
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+          const el = card.current
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            if (rect.top < NAV_H) {
+              const top = rect.top + window.scrollY - (NAV_H + 12)
+              const lenis = getLenis()
+              if (lenis) lenis.scrollTo(top, { duration: reduced ? 0 : 0.6 })
+              else
+                window.scrollTo({
+                  top: Math.max(0, top),
+                  behavior: reduced ? 'auto' : 'smooth',
+                })
+            }
+          }
+        }
         return
       }
 
@@ -214,7 +257,7 @@ export function AsymmetricCarousel({ categories, verticals }: Props) {
       if (lenis) lenis.scrollTo(top, { duration: 1.0 })
       else window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
     },
-    [total, active],
+    [total, active, reduced],
   )
 
   /* Left/Right step through the carousel, Home/End jump to the ends — the
@@ -283,6 +326,7 @@ export function AsymmetricCarousel({ categories, verticals }: Props) {
       */}
       <div ref={track} data-track className="relative">
         <section
+          ref={card}
           aria-roledescription="carousel"
           aria-label="Service divisions"
           onKeyDown={onKeyDown}
