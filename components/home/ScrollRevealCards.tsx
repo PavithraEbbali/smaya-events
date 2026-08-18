@@ -1,8 +1,10 @@
 'use client'
 
 import Image from 'next/image'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useTransform, type MotionValue } from 'framer-motion'
+
+import { usePrefersReducedMotion } from '@/lib/hooks'
 
 type Card = {
   index: string
@@ -210,9 +212,14 @@ export function ScrollRevealCards({
 
 const DECK = [TOP, MIDDLE, BOTTOM]
 
+/** Long enough to read a caption before the next card takes over. */
+const AUTO_ADVANCE_MS = 4500
+
 export function HeroCardsStatic() {
   const trackRef = useRef<HTMLUListElement>(null)
   const [active, setActive] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const reduced = usePrefersReducedMotion()
 
   /* Index from scroll position rather than from a timer, so the dots can never
      disagree with what is on screen. Guarded so it only sets state on an actual
@@ -232,8 +239,56 @@ export function HeroCardsStatic() {
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
   }
 
+  /*
+    AUTO-ADVANCE.
+
+    THE TICK READS `scrollLeft`, IT DOES NOT READ `active`, and that is the
+    whole design. Depending on `active` would put it in the dependency array,
+    so every advance would tear down and recreate the interval — restarting the
+    countdown from zero on each step and, worse, on every stray scroll event
+    that nudged the index. Reading the DOM at tick time keeps one stable timer
+    and makes drift between the timer and the carousel impossible.
+
+    `document.hidden` is checked inside the tick rather than through a
+    visibilitychange listener: browsers already throttle background intervals to
+    roughly once a minute, so the only thing left to prevent is advancing while
+    nobody is looking, and one boolean does that without a second subscription.
+
+    Reduced motion switches it off entirely. An auto-rotating carousel is
+    exactly the kind of unrequested movement that setting exists to stop, and
+    the deck stays fully usable by swipe and by the dots.
+  */
+  useEffect(() => {
+    if (paused || reduced) return
+
+    const id = window.setInterval(() => {
+      const el = trackRef.current
+      if (!el || document.hidden) return
+      const width = Math.max(1, el.clientWidth)
+      const next = (Math.round(el.scrollLeft / width) + 1) % DECK.length
+      el.scrollTo({ left: next * width, behavior: 'smooth' })
+    }, AUTO_ADVANCE_MS)
+
+    return () => window.clearInterval(id)
+  }, [paused, reduced])
+
   return (
-    <div>
+    /*
+      Pause covers pointer, touch and keyboard, because "don't move while I am
+      engaged" means all three. `onFocusCapture` is on the wrapper rather than
+      the buttons so focus anywhere inside — including a dot reached by Tab —
+      holds the deck still.
+    */
+    <div
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+      /* Resume only once the momentum scroll has settled; resuming on touchend
+         would fight the flick the reader just made. */
+      onTouchEnd={() => window.setTimeout(() => setPaused(false), 2500)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
       <ul
         ref={trackRef}
         onScroll={syncActive}
