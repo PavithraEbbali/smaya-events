@@ -212,8 +212,21 @@ export function ScrollRevealCards({
 
 const DECK = [TOP, MIDDLE, BOTTOM]
 
-/** Long enough to read a caption before the next card takes over. */
-const AUTO_ADVANCE_MS = 4500
+/**
+ * Dwell time per card.
+ *
+ * 1000ms is a deliberate choice by the site owner over the 4500ms this shipped
+ * with. Worth knowing what it costs: the smooth scroll between cards takes
+ * roughly 300-400ms of that second, so each card is actually still for about
+ * 600ms — enough to register an image, not enough to read "03 / Celebrations —
+ * Weddings & sangeeths". The deck reads as motion rather than as content at
+ * this speed.
+ *
+ * It stays accessible regardless: touch, hover and focus all pause it, and
+ * prefers-reduced-motion switches it off, which is what WCAG 2.2.2 asks of
+ * anything that auto-updates.
+ */
+const AUTO_ADVANCE_MS = 1000
 
 export function HeroCardsStatic() {
   const trackRef = useRef<HTMLUListElement>(null)
