@@ -60,6 +60,11 @@ const WHEEL_LOCK_MS = 500
  * neighbour cannot push the page wide, and nothing else clips at all — see the
  * notes on the stage and the track.
  */
+/** Dwell per card while auto-advancing on mobile. */
+const AUTO_ADVANCE_MS = 2000
+/** How long a manual tap holds the carousel still before it resumes. */
+const AUTO_RESUME_MS = 8000
+
 export function FeatureCarousel({ slides, label, className }: Props) {
   const [active, setActive] = useState(0)
   const [metrics, setMetrics] = useState({ step: 0, height: 0 })
@@ -70,10 +75,66 @@ export function FeatureCarousel({ slides, label, className }: Props) {
   const reduced = usePrefersReducedMotion()
 
   const count = slides.length
-  const go = useCallback(
-    (next: number) => setActive(Math.max(0, Math.min(count - 1, next))),
-    [count],
+
+  /*
+    Manual interaction suspends the auto-advance. `paused` is a timestamp-free
+    boolean cleared by a timeout, so a reader who taps an arrow gets a clear
+    window to read before the carousel starts moving again.
+  */
+  const [paused, setPaused] = useState(false)
+  const resumeTimer = useRef<number | undefined>(undefined)
+
+  const suspendAuto = useCallback(() => {
+    setPaused(true)
+    if (resumeTimer.current) window.clearTimeout(resumeTimer.current)
+    resumeTimer.current = window.setTimeout(() => setPaused(false), AUTO_RESUME_MS)
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (resumeTimer.current) window.clearTimeout(resumeTimer.current)
+    },
+    [],
   )
+
+  const go = useCallback(
+    (next: number) => {
+      /* Clamped, NOT wrapped — this is the manual path and it is shared with
+         desktop, where the end-stop and the disabled arrow are the existing
+         behaviour. Only the timer below wraps. */
+      setActive(Math.max(0, Math.min(count - 1, next)))
+      suspendAuto()
+    },
+    [count, suspendAuto],
+  )
+
+  /*
+    AUTO-ADVANCE — MOBILE ONLY.
+
+    `window.innerWidth < 768` is checked INSIDE the tick rather than in the
+    dependency array, for the same reason the hero deck reads scrollLeft at tick
+    time: a width in the deps would tear down and rebuild the interval on every
+    resize frame, and a stale closure would otherwise keep the desktop decision
+    from first render forever.
+
+    It WRAPS where the arrows clamp. An auto-advance that stops dead on the last
+    slide is worse than none — it looks broken rather than finished — and the
+    brief asks for cards that cycle. The manual arrows keep their end-stops, so
+    desktop behaviour is untouched.
+
+    Reduced motion switches it off entirely: this is unrequested movement, which
+    is exactly what that setting exists to stop.
+  */
+  useEffect(() => {
+    if (paused || reduced || count < 2) return
+
+    const id = window.setInterval(() => {
+      if (document.hidden || window.innerWidth >= 768) return
+      setActive((prev) => (prev + 1) % count)
+    }, AUTO_ADVANCE_MS)
+
+    return () => window.clearInterval(id)
+  }, [paused, reduced, count])
 
   /*
     The FIRST positioning must not animate.
@@ -490,9 +551,28 @@ function CarouselButton({
       aria-label={direction === 'prev' ? 'Previous service' : 'Next service'}
       className={cn(
         'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-all duration-300',
+        /*
+          MEASURED, AND BOTH VALUES WERE FAILING.
+
+          The outline was `charcoal/15` — 1.36:1 against this white ground, so
+          the button did not read as a button at all, and at slide 0 the
+          disabled prev arrow's glyph measured 1.71:1. Half the control pair was
+          a ghost on first view, which is why this carousel was reported as
+          having no arrows.
+
+          `/50` is not a guess: sweeping the alpha against the measured ground,
+          0.3 gives 1.92, 0.4 gives 2.49 and 0.5 is the first value clearing the
+          3:1 WCAG 1.4.11 asks of a control's boundary, at 3.31. An earlier pass
+          used /40 on an estimate against white-ish and landed under.
+
+          The disabled arrow stays deliberately quieter — it must read as
+          unavailable — and 1.4.11 exempts inactive controls, so /45 (2.87:1) is
+          a judgement call rather than a threshold: enough to show an end-stop
+          exists, not enough to invite a tap.
+        */
         disabled
-          ? 'cursor-not-allowed border-smaya-charcoal/10 text-smaya-charcoal/25'
-          : 'border-smaya-charcoal/15 text-smaya-plum hover:border-smaya-plum hover:bg-smaya-plum hover:text-white',
+          ? 'cursor-not-allowed border-smaya-charcoal/25 text-smaya-charcoal/45'
+          : 'border-smaya-charcoal/50 text-smaya-plum hover:border-smaya-plum hover:bg-smaya-plum hover:text-white',
       )}
     >
       <Icon size={18} aria-hidden />
