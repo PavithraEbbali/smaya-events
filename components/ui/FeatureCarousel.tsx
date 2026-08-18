@@ -74,7 +74,7 @@ const WHEEL_LOCK_MS = 500
  * neighbours, no travel. This spring is then the ONLY thing moving, so 400/18
  * lands as the pop it was always meant to be.
  */
-const BURST: Transition = { type: 'spring', stiffness: 400, damping: 18 }
+const BURST: Transition = { type: 'spring', stiffness: 400, damping: 20 }
 
 /** The deck's own glide between slides. */
 const SLIDE_SPRING: Transition = { type: 'spring', stiffness: 260, damping: 32 }
@@ -436,28 +436,32 @@ export function FeatureCarousel({ slides, label, className }: Props) {
         it routes through the same `go`, so it pauses the auto-advance exactly
         as the arrows do.
       */}
-      <motion.div
-        className="relative z-10 mx-auto w-full md:hidden"
-        drag={reduced ? false : 'x'}
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.16}
-        onDragStart={() => {
-          draggedRef.current = true
-        }}
-        onDragEnd={handleDragEnd}
-        onClickCapture={swallowClickAfterDrag}
-      >
+      <div className="relative z-10 mx-auto w-full md:hidden">
+        {/*
+          NO `drag` HERE, AND THAT IS THE LAST SOURCE OF SIDEWAYS MOTION.
+
+          Removing the track was not sufficient. This wrapper still carried
+          `drag="x"` with `dragElastic: 0.16`, and framer's drag writes an `x`
+          TRANSFORM — so any touch with a horizontal component, including a
+          slightly diagonal scroll, slid the card sideways. A frame pulled from
+          the recording shows it plainly: the outgoing card's edge still at the
+          left while the incoming one sits offset to the right.
+
+          With drag gone the card cannot translate at all. The dots and arrows
+          remain, so every slide is still reachable by hand, and they route
+          through the same `go` that suspends the auto-advance.
+        */}
         <motion.div
           key={active}
-          initial={reduced ? false : { scale: 0.75, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+          initial={reduced ? false : { scale: 0.7, opacity: 0, y: 15 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
           transition={reduced ? { duration: 0 } : BURST}
           aria-roledescription="slide"
           aria-label={`${slides[active].label} — ${active + 1} of ${count}`}
         >
           {slides[active].render(true)}
         </motion.div>
-      </motion.div>
+      </div>
 
       {/*
         THE TRACK IS NOT CLIPPED, AND THAT IS DELIBERATE.
