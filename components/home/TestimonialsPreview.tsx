@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRight, Star } from 'lucide-react'
 
-import { testimonialsPreview } from '@/data/testimonials'
+import { testimonials } from '@/data/testimonials'
 import { staggerContainer, staggerItem, viewportOnce } from '@/lib/animations'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 
@@ -24,9 +24,9 @@ export function TestimonialsPreview() {
           initial="hidden"
           whileInView="show"
           viewport={viewportOnce}
-          className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-6 md:grid-cols-2"
         >
-          {testimonialsPreview.map((review) => (
+          {testimonials.map((review) => (
             <motion.figure
               key={review.author}
               variants={staggerItem}
@@ -39,8 +39,14 @@ export function TestimonialsPreview() {
                 <span className="sr-only">Rated 5 out of 5</span>
               </div>
 
-              <blockquote className="mb-8 flex-grow font-serif text-lg italic leading-relaxed text-smaya-charcoal/80">
-                &ldquo;{review.text}&rdquo;
+              <blockquote className="mb-8 flex-grow space-y-4 font-serif text-lg italic leading-relaxed text-smaya-charcoal/80">
+                {review.text.map((para, j) => (
+                  <p key={j}>
+                    {j === 0 && <>&ldquo;</>}
+                    {para}
+                    {j === review.text.length - 1 && <>&rdquo;</>}
+                  </p>
+                ))}
               </blockquote>
 
               <figcaption>

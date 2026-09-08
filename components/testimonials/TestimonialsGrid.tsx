@@ -182,13 +182,19 @@ function ReviewCard({
             bounded track. */}
         <blockquote
           className={cn(
-            'flex-grow break-words font-serif italic leading-relaxed text-neutral-800',
+            'flex-grow space-y-4 break-words font-serif italic leading-relaxed text-neutral-800',
             spotlight
               ? 'text-xl leading-[1.6] sm:text-2xl'
               : 'text-lg leading-[1.65]',
           )}
         >
-          &ldquo;{review.text}&rdquo;
+          {review.text.map((para, j) => (
+            <p key={j}>
+              {j === 0 && <>&ldquo;</>}
+              {para}
+              {j === review.text.length - 1 && <>&rdquo;</>}
+            </p>
+          ))}
         </blockquote>
 
         {/* A hairline rule instead of a large margin — it gives the attribution

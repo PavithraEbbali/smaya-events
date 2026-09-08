@@ -25,7 +25,7 @@ const reviewsJsonLd = {
   url: site.url,
   review: testimonials.map((review) => ({
     '@type': 'Review',
-    reviewBody: review.text,
+    reviewBody: review.text.join('\n\n'),
     author: { '@type': 'Person', name: review.author },
     reviewRating: { '@type': 'Rating', ratingValue: 5, bestRating: 5 },
   })),
