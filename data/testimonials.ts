@@ -50,3 +50,10 @@ export const testimonials: Testimonial[] = [
     role: 'Birthday Celebration',
   },
 ]
+
+/**
+ * The Home teaser. Two of them, with a link through to the full set — the
+ * homepage is a taste, not the archive. /testimonials renders `testimonials`
+ * in full, so nothing here is hidden from the site, only from the teaser.
+ */
+export const testimonialsPreview = testimonials.slice(0, 2)

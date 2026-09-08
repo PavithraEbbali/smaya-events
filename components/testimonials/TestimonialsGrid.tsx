@@ -7,7 +7,6 @@ import type { Testimonial } from '@/data/testimonials'
 import { viewportOnce } from '@/lib/animations'
 import { usePrefersReducedMotion } from '@/lib/hooks'
 import { SectionHeading } from '@/components/ui/SectionHeading'
-import { cn } from '@/lib/utils'
 
 /* -------------------------------------------------------------------------- *
  * Motion
@@ -16,38 +15,26 @@ import { cn } from '@/lib/utils'
 const SPRING: Transition = { type: 'spring', stiffness: 240, damping: 28 }
 
 /* -------------------------------------------------------------------------- *
- * The editorial rhythm
+ * The rhythm: two up, every card equal
  *
- * A 6-column track rather than 3, which is what buys the asymmetry: a 3-column
- * grid can only ever be thirds, so a "spotlight" spanning two of them leaves a
- * hole in the last row. Six columns divide into 4+2, 2+4 and 3+3 — three
- * different row compositions that all come out FLUSH, so the layout reads as
- * bespoke rather than as a grid with a gap in it.
+ * This used to be a 6-column track running 4+2, 2+4 — a "spotlight" card beside
+ * a half. That composition earns its keep when quotes are SHORT and uneven,
+ * because the width difference is the hierarchy.
  *
- *   row 1   [ ---- spotlight ---- ][  half  ]
- *   row 2   [  half  ][ ---- spotlight ---- ]     <- mirrored
- *   row 3   [   third   ][   third   ]
+ * Our reviews are not short. Every one runs three paragraphs, ~90-110 words,
+ * and at that length the narrow half becomes the problem:
  *
- * Indexed with `% LAYOUT.length`, so the pattern repeats and data/testimonials
- * can grow without touching this file. Rows stay flush at multiples of six; a
- * remainder simply leaves the final row short, which is a ragged edge and not
- * a broken layout.
+ *   - a col-span-2 track is ~384px at 1280, so ~32 characters per line. That is
+ *     a newspaper column, and 110 words down it reads as a tall skinny ribbon.
+ *   - grid rows stretch to their tallest item, so that ribbon sets the row
+ *     height and the wide card beside it is left with a dead gap between the
+ *     quote and the attribution.
  *
- * The spans are written as whole literal class strings because Tailwind v4
- * scans source statically — a computed `lg:col-span-${n}` would never be
- * generated.
+ * Four reviews of equal substance want equal, generous width, so: one column
+ * until lg, two above it. No spans to keep flush, no spotlight — every card
+ * gets the full feature treatment (the watermark glyph, the larger type, the
+ * deeper padding) because on this page every card IS the feature.
  * -------------------------------------------------------------------------- */
-
-const LAYOUT = [
-  'lg:col-span-4',
-  'lg:col-span-2',
-  'lg:col-span-2',
-  'lg:col-span-4',
-  'lg:col-span-3',
-  'lg:col-span-3',
-] as const
-
-const isSpotlight = (span: string) => span === 'lg:col-span-4'
 
 /* -------------------------------------------------------------------------- *
  * Page
@@ -88,20 +75,15 @@ export function TestimonialsGrid({ reviews }: { reviews: Testimonial[] }) {
           className="mb-16 sm:mb-24"
         />
 
-        <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-6 lg:gap-8">
-          {reviews.map((review, i) => {
-            const span = LAYOUT[i % LAYOUT.length]
-            return (
-              <ReviewCard
-                key={`${review.author}-${review.role}`}
-                review={review}
-                index={i}
-                span={span}
-                spotlight={isSpotlight(span)}
-                reduced={reduced}
-              />
-            )
-          })}
+        <ul className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+          {reviews.map((review, i) => (
+            <ReviewCard
+              key={`${review.author}-${review.role}`}
+              review={review}
+              index={i}
+              reduced={reduced}
+            />
+          ))}
         </ul>
       </div>
     </div>
@@ -115,24 +97,20 @@ export function TestimonialsGrid({ reviews }: { reviews: Testimonial[] }) {
 function ReviewCard({
   review,
   index,
-  span,
-  spotlight,
   reduced,
 }: {
   review: Testimonial
   index: number
-  span: string
-  spotlight: boolean
   reduced: boolean
 }) {
   return (
     <motion.li
       data-review={review.author}
-      data-spotlight={spotlight || undefined}
       initial={reduced ? false : { opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={viewportOnce}
-      transition={{ ...SPRING, delay: (index % 3) * 0.08 }}
+      /* Two per row, so the pair rises together and the next row follows. */
+      transition={{ ...SPRING, delay: (index % 2) * 0.08 }}
       whileHover={reduced ? undefined : { y: -6 }}
       /*
         `min-w-0` is load-bearing, not decoration. A grid item defaults to
@@ -140,24 +118,17 @@ function ReviewCard({
         how a single long name pushes a track wider than its share and starts
         the page scrolling sideways.
       */
-      className={cn('min-w-0', span)}
+      className="min-w-0"
     >
-      <figure
-        className={cn(
-          'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#C5A880]/30 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.04)] transition-all duration-500 hover:border-[#C5A880]/70 hover:shadow-[0_18px_44px_rgba(58,34,95,0.10)]',
-          spotlight ? 'p-8 sm:p-10 lg:p-12' : 'p-8 sm:p-9',
-        )}
-      >
-        {/* The spotlight gets a watermark glyph rather than a bigger border —
-            weight without another line competing with the gold edge. */}
-        {spotlight && (
-          <Quote
-            aria-hidden
-            className="pointer-events-none absolute -right-3 -top-3 h-24 w-24 text-[#C5A880]/[0.09]"
-            fill="currentColor"
-            strokeWidth={0}
-          />
-        )}
+      <figure className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#C5A880]/30 bg-white p-8 shadow-[0_10px_30px_rgba(0,0,0,0.04)] transition-all duration-500 hover:border-[#C5A880]/70 hover:shadow-[0_18px_44px_rgba(58,34,95,0.10)] sm:p-10 xl:p-12">
+        {/* A watermark glyph rather than a heavier border — weight without
+            another line competing with the gold edge. */}
+        <Quote
+          aria-hidden
+          className="pointer-events-none absolute -right-3 -top-3 h-24 w-24 text-[#C5A880]/[0.09]"
+          fill="currentColor"
+          strokeWidth={0}
+        />
 
         {/*
           `role="img"` + one label, and the individual stars hidden. Five
@@ -170,24 +141,19 @@ function ReviewCard({
           className="mb-7 flex gap-1 text-smaya-gold-star"
         >
           {Array.from({ length: 5 }).map((_, j) => (
-            <Star
-              key={j}
-              aria-hidden
-              className={cn('fill-current', spotlight ? 'h-6 w-6' : 'h-5 w-5')}
-            />
+            <Star key={j} aria-hidden className="h-6 w-6 fill-current" />
           ))}
         </div>
 
-        {/* `break-words` guards the pathological unbreakable string inside a
-            bounded track. */}
-        <blockquote
-          className={cn(
-            'flex-grow space-y-4 break-words font-serif italic leading-relaxed text-neutral-800',
-            spotlight
-              ? 'text-xl leading-[1.6] sm:text-2xl'
-              : 'text-lg leading-[1.65]',
-          )}
-        >
+        {/*
+          The measure is capped while the grid is a single column: below lg a
+          card spans the whole container, and at ~1000px wide that is a 90+
+          character line, which is as tiring to read as the old narrow one was.
+          Above lg the two-column track already bounds it, so the cap lifts.
+
+          `break-words` guards the pathological unbreakable string.
+        */}
+        <blockquote className="max-w-[62ch] flex-grow space-y-5 break-words font-serif text-lg italic leading-[1.65] text-neutral-800 lg:max-w-none xl:text-xl xl:leading-[1.6]">
           {review.text.map((para, j) => (
             <p key={j}>
               {j === 0 && <>&ldquo;</>}

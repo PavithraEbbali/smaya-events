@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowRight, Star } from 'lucide-react'
 
-import { testimonials } from '@/data/testimonials'
+import { testimonialsPreview } from '@/data/testimonials'
 import { staggerContainer, staggerItem, viewportOnce } from '@/lib/animations'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 
@@ -26,7 +26,7 @@ export function TestimonialsPreview() {
           viewport={viewportOnce}
           className="grid grid-cols-1 gap-6 md:grid-cols-2"
         >
-          {testimonials.map((review) => (
+          {testimonialsPreview.map((review) => (
             <motion.figure
               key={review.author}
               variants={staggerItem}
